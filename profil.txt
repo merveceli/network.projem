@@ -1,0 +1,268 @@
+"use client";
+
+import { useEffect, useState, type ReactNode, type Dispatch, type SetStateAction } from "react";
+import { supabase } from "@/lib/supabase";
+
+/* ================= TYPES ================= */
+
+type Skill = { name: string; level: "Başlangıç" | "Orta" | "İleri" | "Uzman" };
+type Service = { title: string; description: string; price: number };
+
+type Profile = {
+    id: string;
+    full_name: string;
+    location: string;
+    bio: string;
+    skills_inventory: Skill[];
+    services: Service[];
+};
+
+const emptyProfile: Profile = {
+    id: "",
+    full_name: "",
+    location: "",
+    bio: "",
+    skills_inventory: [],
+    services: []
+};
+
+/* ================= PAGE ================= */
+
+export default function ProfilePage() {
+    const [profile, setProfile] = useState<Profile>(emptyProfile);
+    const [loading, setLoading] = useState(true);
+    const [saving, setSaving] = useState(false);
+
+    useEffect(() => {
+        const run = async () => {
+            const { data: auth } = await supabase.auth.getSession();
+            const user = auth.session?.user;
+            if (!user) return setLoading(false);
+
+            const { data } = await supabase.from("profiles").select("*").eq("id", user.id).maybeSingle();
+            if (data) setProfile({ ...emptyProfile, ...data });
+
+            setLoading(false);
+        };
+        run();
+    }, []);
+
+    async function saveProfile() {
+        setSaving(true);
+        await supabase.from("profiles").upsert(profile);
+        setSaving(false);
+    }
+
+    if (loading) return <div style={{ padding: 60 }}>Yükleniyor…</div>;
+
+    return (
+        <div style={page}>
+            <div style={overlay} />
+
+            <div style={layout}>
+                <ProfileCard profile={profile} />
+                <Editor profile={profile} setProfile={setProfile} save={saveProfile} saving={saving} />
+            </div>
+        </div>
+    );
+}
+
+/* ================= COMPONENTS ================= */
+
+function ProfileCard({ profile }: { profile: Profile }) {
+    const score =
+        (profile.full_name ? 20 : 0) +
+        (profile.location ? 20 : 0) +
+        (profile.bio ? 20 : 0) +
+        (profile.skills_inventory.length ? 20 : 0) +
+        (profile.services.length ? 20 : 0);
+
+    return (
+        <div style={card}>
+            <h2 style={{ fontSize: 26 }}>{profile.full_name || "Ad Soyad"}</h2>
+            <p style={{ opacity: 0.8 }}>{profile.bio || "Uzmanlık özeti ekle"}</p>
+            <small>📍 {profile.location || "Konum"}</small>
+
+            <div style={progressOuter}>
+                <div style={{ ...progressInner, width: `${score}%` }} />
+            </div>
+
+            <span style={{ fontWeight: 600 }}>Profil Gücü %{score}</span>
+        </div>
+    );
+}
+
+function Editor({
+    profile,
+    setProfile,
+    save,
+    saving
+}: {
+    profile: Profile;
+    setProfile: Dispatch<SetStateAction<Profile>>;
+    save: () => Promise<void>;
+    saving: boolean;
+}) {
+    return (
+        <div style={editor}>
+            <Field label="Ad Soyad">
+                <input value={profile.full_name} onChange={(e) => setProfile({ ...profile, full_name: e.target.value })} />
+            </Field>
+
+            <Field label="Konum">
+                <input value={profile.location} onChange={(e) => setProfile({ ...profile, location: e.target.value })} />
+            </Field>
+
+            <Field label="Uzmanlık Özeti">
+                <textarea value={profile.bio} rows={4} onChange={(e) => setProfile({ ...profile, bio: e.target.value })} />
+            </Field>
+
+            <Section title="Yetenekler">
+                {profile.skills_inventory.map((s, i) => (
+                    <div key={i} style={skillRow}>
+                        <input value={s.name} onChange={(e) => updateSkill(i, { name: e.target.value }, profile, setProfile)} />
+                        <select value={s.level} onChange={(e) => updateSkill(i, { level: e.target.value as Skill["level"] }, profile, setProfile)}>
+                            <option>Başlangıç</option>
+                            <option>Orta</option>
+                            <option>İleri</option>
+                            <option>Uzman</option>
+                        </select>
+                        <button onClick={() => removeSkill(i, profile, setProfile)}>Sil</button>
+                    </div>
+                ))}
+                <button onClick={() => addSkill(profile, setProfile)}>+ Yetenek Ekle</button>
+            </Section>
+
+            <Section title="Hizmetler">
+                {profile.services.map((s, i) => (
+                    <div key={i} style={serviceCard}>
+                        <input placeholder="Başlık" value={s.title} onChange={(e) => updateService(i, { title: e.target.value }, profile, setProfile)} />
+                        <textarea placeholder="Açıklama" rows={3} value={s.description} onChange={(e) => updateService(i, { description: e.target.value }, profile, setProfile)} />
+                        <input type="number" placeholder="Fiyat" value={s.price} onChange={(e) => updateService(i, { price: Number(e.target.value) }, profile, setProfile)} />
+                        <button onClick={() => removeService(i, profile, setProfile)}>Sil</button>
+                    </div>
+                ))}
+                <button onClick={() => addService(profile, setProfile)}>+ Hizmet Ekle</button>
+            </Section>
+
+            <button style={saveBtn} disabled={saving} onClick={save}>
+                {saving ? "Kaydediliyor…" : "Kaydet"}
+            </button>
+        </div>
+    );
+}
+
+/* ================= LOGIC ================= */
+
+function updateSkill(i: number, data: Partial<Skill>, profile: Profile, setProfile: Dispatch<SetStateAction<Profile>>) {
+    const arr = [...profile.skills_inventory];
+    arr[i] = { ...arr[i], ...data };
+    setProfile({ ...profile, skills_inventory: arr });
+}
+
+function removeSkill(i: number, profile: Profile, setProfile: Dispatch<SetStateAction<Profile>>) {
+    setProfile({ ...profile, skills_inventory: profile.skills_inventory.filter((_, x) => x !== i) });
+}
+
+function addSkill(profile: Profile, setProfile: Dispatch<SetStateAction<Profile>>) {
+    setProfile({ ...profile, skills_inventory: [...profile.skills_inventory, { name: "", level: "Orta" }] });
+}
+
+function updateService(i: number, data: Partial<Service>, profile: Profile, setProfile: Dispatch<SetStateAction<Profile>>) {
+    const arr = [...profile.services];
+    arr[i] = { ...arr[i], ...data };
+    setProfile({ ...profile, services: arr });
+}
+
+function removeService(i: number, profile: Profile, setProfile: Dispatch<SetStateAction<Profile>>) {
+    setProfile({ ...profile, services: profile.services.filter((_, x) => x !== i) });
+}
+
+function addService(profile: Profile, setProfile: Dispatch<SetStateAction<Profile>>) {
+    setProfile({ ...profile, services: [...profile.services, { title: "", description: "", price: 0 }] });
+}
+
+/* ================= UI ================= */
+
+function Field({ label, children }: { label: string; children: ReactNode }) {
+    return (
+        <label style={field}>
+            <span>{label}</span>
+            {children}
+        </label>
+    );
+}
+
+function Section({ title, children }: { title: string; children: ReactNode }) {
+    return (
+        <div>
+            <h3 style={{ marginBottom: 10 }}>{title}</h3>
+            {children}
+        </div>
+    );
+}
+
+/* ================= STYLES ================= */
+
+const page = {
+    minHeight: "100vh",
+    backgroundImage: "url('https://images.unsplash.com/photo-1558655146-9f40138edfeb?auto=format&fit=crop&w=1600&q=80')",
+
+    backgroundSize: "cover",
+    backgroundPosition: "center",
+    position: "relative" as const
+};
+
+const overlay = {
+    position: "absolute" as const,
+    inset: 0,
+    background: "rgba(255,255,255,0.6)",
+    backdropFilter: "blur(12px)"
+};
+
+const layout = {
+    position: "relative" as const,
+    zIndex: 2,
+    display: "grid",
+    gridTemplateColumns: "320px 1fr",
+    gap: 40,
+    padding: 60,
+    maxWidth: 1200,
+    margin: "0 auto"
+};
+
+const card = {
+    padding: 30,
+    borderRadius: 20,
+    background: "rgba(255,255,255,0.8)",
+    boxShadow: "0 30px 60px rgba(0,0,0,0.15)"
+};
+
+const editor = {
+    padding: 30,
+    borderRadius: 20,
+    background: "rgba(255,255,255,0.85)",
+    boxShadow: "0 30px 60px rgba(0,0,0,0.15)",
+    display: "flex",
+    flexDirection: "column" as const,
+    gap: 18
+};
+
+const field = { display: "flex", flexDirection: "column" as const, gap: 6 };
+
+const skillRow = { display: "grid", gridTemplateColumns: "1fr 120px 60px", gap: 10, marginBottom: 8 };
+const serviceCard = { border: "1px solid #ddd", borderRadius: 10, padding: 12, display: "flex", flexDirection: "column" as const, gap: 8 };
+
+const saveBtn = {
+    marginTop: 20,
+    padding: "14px 28px",
+    borderRadius: 12,
+    border: "none",
+    background: "#111",
+    color: "#fff",
+    fontWeight: 600,
+    cursor: "pointer"
+};
+
+const progressOuter = { height: 10, background: "#e5e5e5", borderRadius: 6, margin: "12px 0" };
+const progressInner = { height: 10, background: "#111", borderRadius: 6 };

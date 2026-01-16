@@ -1,0 +1,510 @@
+/* PROFIL OLUŞTURMA SAYFASI */
+.profileSetup {
+    min-height: 100vh;
+    background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+
+.container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 20px;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+}
+
+/* HEADER */
+.header {
+    text-align: center;
+    margin-bottom: 40px;
+    padding-top: 20px;
+}
+
+.logo {
+    font-size: 2.5rem;
+    font-weight: bold;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    margin-bottom: 10px;
+}
+
+.subtitle {
+    color: #64748b;
+    font-size: 1.1rem;
+}
+
+/* PROGRESS BAR */
+.progressBar {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 50px;
+    position: relative;
+}
+
+.progressStep {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    z-index: 2;
+}
+
+.stepNumber {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: #cbd5e1;
+    color: #64748b;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+    font-size: 1.1rem;
+    margin-bottom: 8px;
+    transition: all 0.3s;
+    border: 3px solid #cbd5e1;
+}
+
+.progressStep.active .stepNumber {
+    background: #667eea;
+    color: white;
+    border-color: #667eea;
+    box-shadow: 0 5px 15px rgba(102, 126, 234, 0.3);
+}
+
+.stepLabel {
+    color: #94a3b8;
+    font-size: 0.9rem;
+    font-weight: 500;
+    white-space: nowrap;
+}
+
+.progressStep.active .stepLabel {
+    color: #475569;
+    font-weight: 600;
+}
+
+.progressLine {
+    width: 100px;
+    height: 3px;
+    background: #cbd5e1;
+    margin: 0 10px;
+    position: relative;
+    top: -15px;
+}
+
+/* MAIN CONTENT */
+.mainContent {
+    flex: 1;
+    background: white;
+    border-radius: 20px;
+    padding: 40px;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.08);
+    margin-bottom: 40px;
+}
+
+.stepContainer {
+    max-width: 800px;
+    margin: 0 auto;
+}
+
+.stepHeader {
+    text-align: center;
+    margin-bottom: 40px;
+}
+
+.stepHeader h2 {
+    font-size: 2rem;
+    color: #1e293b;
+    margin-bottom: 10px;
+}
+
+.stepHeader p {
+    color: #64748b;
+    font-size: 1.1rem;
+}
+
+/* USER TYPE CARDS */
+.userTypeCards {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+    gap: 30px;
+    margin-bottom: 40px;
+}
+
+.userTypeCard {
+    background: #f8fafc;
+    border: 2px solid #e2e8f0;
+    border-radius: 15px;
+    padding: 30px;
+    cursor: pointer;
+    transition: all 0.3s;
+    position: relative;
+    overflow: hidden;
+}
+
+.userTypeCard:hover {
+    transform: translateY(-5px);
+    border-color: #c7d2fe;
+    box-shadow: 0 15px 30px rgba(0, 0, 0, 0.1);
+}
+
+.userTypeCard.selected {
+    border-color: #667eea;
+    background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+    box-shadow: 0 10px 25px rgba(102, 126, 234, 0.15);
+}
+
+.userTypeCard.selected::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 4px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+}
+
+.cardIcon {
+    font-size: 3rem;
+    margin-bottom: 20px;
+    text-align: center;
+}
+
+.userTypeCard h3 {
+    color: #1e293b;
+    font-size: 1.5rem;
+    margin-bottom: 20px;
+    text-align: center;
+}
+
+.featuresList {
+    list-style: none;
+    padding: 0;
+    margin-bottom: 25px;
+}
+
+.featuresList li {
+    padding: 8px 0;
+    color: #475569;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.featuresList li::before {
+    content: '✓';
+    color: #10b981;
+    font-weight: bold;
+}
+
+.cardFooter {
+    text-align: center;
+    padding-top: 15px;
+    border-top: 1px solid #e2e8f0;
+}
+
+.popularTag {
+    background: linear-gradient(135deg, #10b981 0%, #34d399 100%);
+    color: white;
+    padding: 6px 15px;
+    border-radius: 20px;
+    font-size: 0.85rem;
+    font-weight: 600;
+}
+
+.businessTag {
+    background: linear-gradient(135deg, #8b5cf6 0%, #a78bfa 100%);
+    color: white;
+    padding: 6px 15px;
+    border-radius: 20px;
+    font-size: 0.85rem;
+    font-weight: 600;
+}
+
+/* HELP TEXT */
+.helpText {
+    background: #f1f5f9;
+    padding: 20px;
+    border-radius: 10px;
+    text-align: center;
+    margin-top: 30px;
+}
+
+.helpText p {
+    margin: 5px 0;
+    color: #475569;
+}
+
+.smallText {
+    font-size: 0.9rem;
+    color: #64748b !important;
+    margin-top: 10px !important;
+}
+
+.smallText strong {
+    color: #1e293b;
+    margin: 0 5px;
+}
+
+/* PROFILE FORM */
+.profileForm {
+    animation: fadeIn 0.5s ease;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.formSection {
+    margin-bottom: 40px;
+    padding-bottom: 30px;
+    border-bottom: 2px solid #f1f5f9;
+}
+
+.formSection:last-of-type {
+    border-bottom: none;
+    margin-bottom: 30px;
+}
+
+.formSection h3 {
+    color: #334155;
+    font-size: 1.3rem;
+    margin-bottom: 25px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.formGrid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 25px;
+}
+
+.formGroup {
+    margin-bottom: 20px;
+}
+
+.formGroup.fullWidth {
+    grid-column: 1 / -1;
+}
+
+.formGroup label {
+    display: block;
+    color: #475569;
+    font-weight: 500;
+    margin-bottom: 8px;
+    font-size: 0.95rem;
+}
+
+.formGroup input,
+.formGroup select,
+.formGroup textarea {
+    width: 100%;
+    padding: 12px 16px;
+    border: 2px solid #e2e8f0;
+    border-radius: 8px;
+    font-size: 1rem;
+    color: #1e293b;
+    background: white;
+    transition: all 0.3s;
+    font-family: inherit;
+}
+
+.formGroup input:focus,
+.formGroup select:focus,
+.formGroup textarea:focus {
+    outline: none;
+    border-color: #667eea;
+    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+.formGroup input::placeholder,
+.formGroup textarea::placeholder {
+    color: #94a3b8;
+}
+
+.formGroup textarea {
+    resize: vertical;
+    min-height: 100px;
+}
+
+.inputWithSymbol {
+    position: relative;
+}
+
+.inputWithSymbol input {
+    padding-right: 80px;
+}
+
+.inputSymbol {
+    position: absolute;
+    right: 16px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: #64748b;
+    font-size: 0.9rem;
+}
+
+/* FORM ACTIONS */
+.formActions {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 40px;
+    padding-top: 30px;
+    border-top: 2px solid #f1f5f9;
+}
+
+.backButton {
+    padding: 12px 30px;
+    background: #f1f5f9;
+    color: #64748b;
+    border: none;
+    border-radius: 8px;
+    font-size: 1rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.3s;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.backButton:hover {
+    background: #e2e8f0;
+    color: #475569;
+}
+
+.submitButton {
+    padding: 14px 35px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-size: 1.1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.submitButton:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 10px 25px rgba(102, 126, 234, 0.3);
+}
+
+.formNote {
+    margin-top: 25px;
+    text-align: center;
+    color: #64748b;
+    font-size: 0.9rem;
+    background: #f8fafc;
+    padding: 15px;
+    border-radius: 8px;
+}
+
+/* FOOTER */
+.footer {
+    text-align: center;
+    padding: 30px 0;
+    color: #64748b;
+}
+
+.footerText {
+    margin-bottom: 15px;
+    font-size: 0.95rem;
+}
+
+.footerLinks {
+    font-size: 0.9rem;
+}
+
+.footerLinks a {
+    color: #667eea;
+    text-decoration: none;
+    margin: 0 10px;
+    transition: color 0.3s;
+}
+
+.footerLinks a:hover {
+    color: #764ba2;
+    text-decoration: underline;
+}
+
+/* RESPONSIVE */
+@media (max-width: 768px) {
+    .container {
+        padding: 15px;
+    }
+
+    .mainContent {
+        padding: 25px;
+    }
+
+    .userTypeCards {
+        grid-template-columns: 1fr;
+    }
+
+    .progressBar {
+        flex-direction: column;
+        gap: 20px;
+    }
+
+    .progressLine {
+        width: 3px;
+        height: 40px;
+        margin: 0;
+    }
+
+    .stepHeader h2 {
+        font-size: 1.7rem;
+    }
+
+    .formGrid {
+        grid-template-columns: 1fr;
+    }
+
+    .formActions {
+        flex-direction: column;
+        gap: 15px;
+    }
+
+    .backButton,
+    .submitButton {
+        width: 100%;
+        justify-content: center;
+    }
+}
+
+@media (max-width: 480px) {
+    .logo {
+        font-size: 2rem;
+    }
+
+    .mainContent {
+        padding: 20px;
+    }
+
+    .userTypeCard {
+        padding: 20px;
+    }
+
+    .stepHeader h2 {
+        font-size: 1.5rem;
+    }
+}
