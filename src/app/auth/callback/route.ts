@@ -11,6 +11,22 @@ export async function GET(request: Request) {
         const supabase = await createClient()
         const { error } = await supabase.auth.exchangeCodeForSession(code)
         if (!error) {
+            // Check if profile exists and has a role
+            const { data: { user } } = await supabase.auth.getUser()
+
+            if (user) {
+                const { data: profile } = await supabase
+                    .from('profiles')
+                    .select('role')
+                    .eq('id', user.id)
+                    .single()
+
+                // If no profile or no role (onboarding incomplete), force redirect to /profil
+                if (!profile || !profile.role) {
+                    return NextResponse.redirect(`${origin}/profil`)
+                }
+            }
+
             return NextResponse.redirect(`${origin}${next}`)
         }
     }

@@ -24,7 +24,7 @@ export default function Footer() {
                         Emeğinize saygı duyuyoruz.
                     </p>
                     <h4 className="mb-[15px] font-[900] text-[15px]">İletişim</h4>
-                    <p className="text-[14px] font-bold text-[#4A90A4]">destek@net-work.com.tr</p>
+                    <p className="text-[14px] font-bold text-[#4A90A4]">desteknet.work.tr@gmail.com</p>
                 </div>
 
                 {/* GELİŞTİRİCİ HAKKINDA (Mini Alan) */}
@@ -41,7 +41,7 @@ export default function Footer() {
                         İstanbul Üniversitesi Bilgisayar Programcılığı son sınıf öğrencisi. <br />
                         20 yaşında, İstanbul'da yaşayan Freelance Yazılımcı & Grafik Tasarımcı.
                     </p>
-                    <a href="https://www.linkedin.com/in/merve-celik/" target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 bg-[#0077b5] text-white px-3 py-1.5 rounded-md text-[12px] font-bold hover:opacity-90 transition-opacity no-underline">
+                    <a href="https://www.linkedin.com/in/merve-ç-a2a2832b2" target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 bg-[#0077b5] text-white px-3 py-1.5 rounded-md text-[12px] font-bold hover:opacity-90 transition-opacity no-underline">
                         <span>LinkedIn</span>
                     </a>
                 </div>

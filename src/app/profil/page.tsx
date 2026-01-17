@@ -52,8 +52,13 @@ export default function ProfileSetup() {
                 else if (profile.role === 'employer') router.push('/profil/employer');
             }
 
-            // Email'i otomatik doldur
-            setFormData(prev => ({ ...prev, email: user.email || '' }));
+            // Email ve Metadata (Google Name/Avatar) otomatik doldur
+            setFormData(prev => ({
+                ...prev,
+                email: user.email || '',
+                name: user.user_metadata?.full_name || user.user_metadata?.name || '',
+                avatar_url: user.user_metadata?.avatar_url || user.user_metadata?.picture || ''
+            }));
             setLoading(false);
         };
 
