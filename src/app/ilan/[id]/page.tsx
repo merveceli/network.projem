@@ -6,12 +6,14 @@ import Link from "next/link";
 import { ArrowLeft, CheckCircle2, Send, AlertCircle, Briefcase, Flag } from "lucide-react";
 import { Filter } from 'bad-words';
 import ReportModal from "@/components/ReportModal";
+import { useToast } from "@/contexts/ToastContext";
 
 // --- TİPLER ---
 interface Job {
     id: string;
     title: string;
     description: string;
+    salary_range: string; // Add this field
     creator_id: string;
     is_filled: boolean;
 
@@ -37,6 +39,7 @@ export default function JobDetailPage() {
     const [alreadyAppliedOnLoad, setAlreadyAppliedOnLoad] = useState(false); // New state to distinguish
     const [togglingFilled, setTogglingFilled] = useState(false);
     const [isReportModalOpen, setIsReportModalOpen] = useState(false);
+    const { success, error: toastError, info } = useToast();
 
     useEffect(() => {
         async function getJobAndUserStatus() {
@@ -49,7 +52,7 @@ export default function JobDetailPage() {
                 // 2. Fetch Job Details
                 const { data: jobData, error } = await supabase
                     .from("jobs")
-                    .select(`id, title, description, creator_id, is_filled, urgency, images, profiles:creator_id(full_name)`)
+                    .select(`id, title, description, salary_range, creator_id, is_filled, urgency, images, profiles:creator_id(full_name)`)
                     .eq("id", id)
                     .single();
 
@@ -156,8 +159,47 @@ export default function JobDetailPage() {
         </div>
     );
 
+    // --- STRUCTURED DATA (JSON-LD) ---
+    const jsonLd = job ? {
+        '@context': 'https://schema.org',
+        '@type': 'JobPosting',
+        title: job.title,
+        description: job.description,
+        datePosted: new Date().toISOString(), // Aslında job.created_at olmalı ama dbden çekmedik, şimdilik böyle
+        validThrough: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+        employmentType: 'CONTRACTOR',
+        hiringOrganization: {
+            '@type': 'Organization',
+            name: job.profiles?.full_name || 'Gizli İşveren',
+            sameAs: 'https://net-work.com.tr'
+        },
+        jobLocation: {
+            '@type': 'Place',
+            address: {
+                '@type': 'PostalAddress',
+                addressCountry: 'TR'
+            }
+        },
+        baseSalary: {
+            '@type': 'MonetaryAmount',
+            currency: 'TRY',
+            value: {
+                '@type': 'QuantitativeValue',
+                value: 0, // Belirtilmemiş
+                unitText: 'PROJECT'
+            }
+        }
+    } : null;
+
     return (
         <div className="min-h-screen bg-gray-50 dark:bg-zinc-950 flex items-center justify-center p-6 font-sans">
+            {/* Structured Data injection */}
+            {jsonLd && (
+                <script
+                    type="application/ld+json"
+                    dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+                />
+            )}
             <div className="max-w-2xl w-full bg-white dark:bg-zinc-900 rounded-3xl shadow-xl border border-gray-100 dark:border-zinc-800 p-8 md:p-12">
 
                 <div className="flex justify-between items-center mb-8">
@@ -202,6 +244,22 @@ export default function JobDetailPage() {
                             ))}
                         </div>
                     )}
+
+                    <div className="flex items-center gap-4 mb-6">
+                        {job.salary_range && (
+                            <div className={`px-4 py-2 rounded-xl border flex items-center gap-2 font-bold ${job.salary_range === 'Gönüllü'
+                                ? 'bg-indigo-50 border-indigo-200 text-indigo-700 dark:bg-indigo-900/30 dark:border-indigo-800 dark:text-indigo-300'
+                                : 'bg-gray-100 border-gray-200 text-gray-700 dark:bg-zinc-800 dark:border-zinc-700 dark:text-zinc-300'
+                                }`}>
+                                <Briefcase className="w-4 h-4" />
+                                {job.salary_range === 'Gönüllü' ? 'Gönüllü / Ücretsiz Proje' : job.salary_range}
+                            </div>
+                        )}
+                        <div className="px-4 py-2 rounded-xl bg-gray-100 border border-gray-200 text-gray-700 dark:bg-zinc-800 dark:border-zinc-700 dark:text-zinc-300 font-bold flex items-center gap-2">
+                            <CheckCircle2 className="w-4 h-4" />
+                            {job.urgency === 'urgent' ? 'Acil Başlangıç' : 'Normal Süreç'}
+                        </div>
+                    </div>
 
                     <p className="text-gray-600 dark:text-gray-400 mb-8 leading-relaxed text-lg">{job.description}</p>
 

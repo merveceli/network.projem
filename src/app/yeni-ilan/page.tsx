@@ -22,6 +22,7 @@ export default function YeniIlan() {
     const [userId, setUserId] = useState<string | null>(null);
     const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
     const [rateLimitInfo, setRateLimitInfo] = useState<any>(null);
+    const [submitted, setSubmitted] = useState(false); // Success state
     const router = useRouter();
 
     useEffect(() => {
@@ -134,11 +135,49 @@ export default function YeniIlan() {
             alert("Hata: " + error.message);
             setLoading(false);
         } else {
-            alert("İlan başarıyla gönderildi.");
-            router.push("/");
-            router.refresh();
+            console.log("İlan başarıyla gönderildi.");
+            setSubmitted(true);
+            window.scrollTo({ top: 0, behavior: 'smooth' });
         }
     };
+
+    if (submitted) {
+        return (
+            <div className="min-h-screen bg-gray-50 dark:bg-zinc-950 flex items-center justify-center p-6 font-sans">
+                <div className="max-w-xl w-full bg-white dark:bg-zinc-900 rounded-3xl shadow-xl border border-gray-100 dark:border-zinc-800 p-10 text-center animate-in fade-in zoom-in duration-500">
+                    <div className="w-24 h-24 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center mx-auto mb-6 text-green-600 dark:text-green-400">
+                        <CheckCircle2 className="w-12 h-12" />
+                    </div>
+
+                    <h2 className="text-3xl font-black text-gray-900 dark:text-white mb-4">
+                        İlanınız Alındı! 🎉
+                    </h2>
+
+                    <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-800 rounded-xl p-5 mb-8">
+                        <p className="text-blue-800 dark:text-blue-300 font-medium text-lg leading-relaxed">
+                            İlanınız editörlerimiz tarafından incelenmek üzere sisteme kaydedilmiştir.
+                            Onay sürecinden sonra yayına alınacaktır.
+                        </p>
+                    </div>
+
+                    <div className="flex flex-col gap-3">
+                        <Link
+                            href="/"
+                            className="bg-gray-900 hover:bg-black dark:bg-white dark:hover:bg-gray-200 text-white dark:text-gray-900 font-bold py-4 px-8 rounded-xl transition-all shadow-lg hover:scale-105 active:scale-95 no-underline"
+                        >
+                            Ana Sayfaya Dön
+                        </Link>
+                        <button
+                            onClick={() => window.location.reload()}
+                            className="text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white font-bold py-2 transition-colors"
+                        >
+                            Yeni Bir İlan Daha Ver
+                        </button>
+                    </div>
+                </div>
+            </div>
+        );
+    }
 
     return (
         <div className="min-h-screen bg-gray-50 dark:bg-zinc-950 transition-colors duration-300 font-sans relative overflow-hidden">
@@ -277,16 +316,38 @@ export default function YeniIlan() {
 
                                 {/* Salary Range */}
                                 <div className="space-y-2">
-                                    <label className="text-sm font-semibold text-gray-900 dark:text-zinc-100 flex items-center gap-2">
-                                        <span className="text-gray-400 font-bold">₺</span>
-                                        Tahmini Ücret / Maaş
+                                    <label className="text-sm font-semibold text-gray-900 dark:text-zinc-100 flex items-center justify-between">
+                                        <div className="flex items-center gap-2">
+                                            <span className="text-gray-400 font-bold">₺</span>
+                                            Tahmini Ücret / Maaş
+                                        </div>
+
+                                        {/* Volunteer Checkbox */}
+                                        <label className="flex items-center gap-2 cursor-pointer group">
+                                            <input
+                                                type="checkbox"
+                                                className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 transition-all"
+                                                checked={salary === "Gönüllü"}
+                                                onChange={(e) => {
+                                                    if (e.target.checked) {
+                                                        setSalary("Gönüllü");
+                                                    } else {
+                                                        setSalary("");
+                                                    }
+                                                }}
+                                            />
+                                            <span className="text-xs font-bold text-gray-500 dark:text-zinc-400 group-hover:text-blue-600 transition-colors">
+                                                Gönüllü / Ücretsiz (Maaşsız)
+                                            </span>
+                                        </label>
                                     </label>
                                     <input
                                         type="text"
-                                        placeholder="Örn: 25.000 - 35.000 TL"
-                                        className="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-zinc-700 bg-white dark:bg-zinc-950 text-gray-900 dark:text-white placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all outline-none"
+                                        placeholder={salary === "Gönüllü" ? "Bu ilan gönüllü çalışma içerir." : "Örn: 25.000 - 35.000 TL"}
+                                        className={`w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-zinc-700 bg-white dark:bg-zinc-950 text-gray-900 dark:text-white placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all outline-none ${salary === "Gönüllü" ? "opacity-50 cursor-not-allowed bg-gray-100 dark:bg-zinc-900" : ""}`}
                                         value={salary}
                                         onChange={(e) => setSalary(e.target.value)}
+                                        disabled={salary === "Gönüllü"}
                                     />
                                 </div>
 

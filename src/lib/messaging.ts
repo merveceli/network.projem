@@ -58,7 +58,7 @@ export async function getOrCreateConversation(
     }
 
     // First, try to find existing conversation (check both orders)
-    const { data: existing, error: searchError } = await supabase
+    const { data: existing } = await supabase
         .from('conversations')
         .select('*')
         .or(`and(participant_1.eq.${userId1},participant_2.eq.${userId2}),and(participant_1.eq.${userId2},participant_2.eq.${userId1})`)

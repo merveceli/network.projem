@@ -6,7 +6,7 @@ const API_KEY = process.env.GOOGLE_API_KEY || "";
 const genAI = new GoogleGenerativeAI(API_KEY);
 
 const model = genAI.getGenerativeModel({
-    model: "gemini-2.5-flash",
+    model: "gemini-1.5-flash",
     systemInstruction: `
     # IDENTITY & ROLE
     Sen "Net-Work" platformunun resmi yapay zeka asistanısın. Kullanıcılara iş bulma, yetenekli freelance çalışanlara ulaşma ve platform kullanımı konularında rehberlik edersin. Profesyonel, çözüm odaklı, enerjik ve yardımseversin. 🚀

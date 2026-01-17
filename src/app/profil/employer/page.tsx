@@ -7,6 +7,7 @@ import Navbar from '@/components/Navbar';
 import { useRouter } from 'next/navigation';
 import { LogOut, Building2, Briefcase, Star, Settings, LayoutGrid, Users, MapPin, Globe, Mail, ShieldCheck, ShieldAlert, AlertTriangle, Clock } from 'lucide-react';
 import Image from 'next/image';
+import { useToast } from "@/contexts/ToastContext";
 
 
 // --- TİP TANIMLAMALARI ---
@@ -78,6 +79,7 @@ export default function EmployerProfile() {
     const [isEditing, setIsEditing] = useState(false);
     const [newBenefit, setNewBenefit] = useState('');
     const [loading, setLoading] = useState(true);
+    const { success, error: toastError } = useToast();
 
     // Mock Data for Jobs (since we might not have a jobs table structure ready yet or it's complex)
     // In a real app, these would come from a 'jobs' table related to the company
@@ -182,10 +184,10 @@ export default function EmployerProfile() {
                 .upsert(updates);
 
             if (error) throw error;
-            alert('Şirket bilgileri güncellendi!');
+            success('Şirket bilgileri güncellendi!');
         } catch (error) {
             console.error('Kaydetme hatası:', error);
-            alert('Kaydetme sırasında bir hata oluştu. (Not: Veritabanı şeması güncel olmayabilir)');
+            toastError('Kaydetme sırasında bir hata oluştu. (Not: Veritabanı şeması güncel olmayabilir)');
         }
     };
 
@@ -215,9 +217,9 @@ export default function EmployerProfile() {
             // DB güncelle (Logo hemen kaydolmalı)
             await supabase.from('profiles').update({ avatar_url: publicUrl }).eq('id', user.id);
 
-            alert("Şirket logosu başarıyla güncellendi!");
+            success("Şirket logosu başarıyla güncellendi!");
         } catch (error: any) {
-            alert("Logo yükleme hatası: " + error.message);
+            toastError("Logo yükleme hatası: " + error.message);
         }
     };
 
