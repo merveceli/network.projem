@@ -49,8 +49,6 @@ interface ProfileData {
     availability: string;
     video_url?: string | null;
     video_status?: string; // pending, approved, rejected
-    video_url?: string | null;
-    video_status?: string; // pending, approved, rejected
     avatar_url?: string | null; // Yeni alan
     cv_url?: string | null;
     is_secure?: boolean;
@@ -134,8 +132,6 @@ export default function FreelancerProfile() {
     const [comments, setComments] = useState<Comment[]>([]);
     const [newComment, setNewComment] = useState("");
     const [submittingComment, setSubmittingComment] = useState(false);
-    const [newComment, setNewComment] = useState("");
-    const [submittingComment, setSubmittingComment] = useState(false);
     const [uploadingCv, setUploadingCv] = useState(false);
     const [uploadingAvatar, setUploadingAvatar] = useState(false);
 
@@ -173,8 +169,6 @@ export default function FreelancerProfile() {
                         email: user.email || '',
                         phone: data.phone || '',
                         availability: data.availability || 'Müsait',
-                        video_url: data.video_url,
-                        video_status: data.video_status,
                         video_url: data.video_url,
                         video_status: data.video_status,
                         avatar_url: data.avatar_url, // Fetch avatar
@@ -229,7 +223,6 @@ export default function FreelancerProfile() {
                 services: profile.services,
                 portfolio: profile.portfolio,
                 skills: profile.skills,
-                video_url: profile.video_url,
                 video_url: profile.video_url,
                 video_status: profile.video_status,
                 avatar_url: profile.avatar_url // Save avatar
