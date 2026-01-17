@@ -49,6 +49,9 @@ interface ProfileData {
     availability: string;
     video_url?: string | null;
     video_status?: string; // pending, approved, rejected
+    video_url?: string | null;
+    video_status?: string; // pending, approved, rejected
+    avatar_url?: string | null; // Yeni alan
     cv_url?: string | null;
     is_secure?: boolean;
     is_suspicious?: boolean;
@@ -131,7 +134,10 @@ export default function FreelancerProfile() {
     const [comments, setComments] = useState<Comment[]>([]);
     const [newComment, setNewComment] = useState("");
     const [submittingComment, setSubmittingComment] = useState(false);
+    const [newComment, setNewComment] = useState("");
+    const [submittingComment, setSubmittingComment] = useState(false);
     const [uploadingCv, setUploadingCv] = useState(false);
+    const [uploadingAvatar, setUploadingAvatar] = useState(false);
 
     // UI States
     const [isVideoOpen, setIsVideoOpen] = useState(false);
@@ -169,6 +175,9 @@ export default function FreelancerProfile() {
                         availability: data.availability || 'Müsait',
                         video_url: data.video_url,
                         video_status: data.video_status,
+                        video_url: data.video_url,
+                        video_status: data.video_status,
+                        avatar_url: data.avatar_url, // Fetch avatar
                         cv_url: data.cv_url,
                         is_secure: data.is_secure,
                         is_suspicious: data.is_suspicious,
@@ -221,7 +230,9 @@ export default function FreelancerProfile() {
                 portfolio: profile.portfolio,
                 skills: profile.skills,
                 video_url: profile.video_url,
-                video_status: profile.video_status // Bunu da kaydediyoruz
+                video_url: profile.video_url,
+                video_status: profile.video_status,
+                avatar_url: profile.avatar_url // Save avatar
             }).eq('id', user.id);
 
             if (error) throw error;
@@ -342,6 +353,52 @@ export default function FreelancerProfile() {
         alert("CV başarıyla yüklendi! (Kaydetmeyi unutmayın)");
     };
 
+    const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file || !user) return;
+
+        setUploadingAvatar(true);
+        try {
+            const fileExt = file.name.split('.').pop();
+            const fileName = `${user.id}/avatar_${Date.now()}.${fileExt}`;
+
+            const { error: uploadError } = await supabase.storage
+                .from('avatars')
+                .upload(fileName, file);
+
+            if (uploadError) throw uploadError;
+
+            const { data: { publicUrl } } = supabase.storage
+                .from('avatars')
+                .getPublicUrl(fileName);
+
+            setProfile(prev => ({ ...prev, avatar_url: publicUrl }));
+            alert("Profil fotoğrafı güncellendi! (Kaydetmeyi unutmayın)");
+        } catch (error: any) {
+            alert("Fotoğraf yükleme hatası: " + error.message);
+        } finally {
+            setUploadingAvatar(false);
+        }
+    };
+
+    const handleDeleteProfile = async () => {
+        if (!user) return;
+        const confirmDelete = window.confirm("Profili SİLMEK ve SIFIRLAMAK istediğinize emin misiniz? Bu işlem geri alınamaz ve tekrar kurulum yapmanız gerekir.");
+        if (!confirmDelete) return;
+
+        try {
+            // Profil satırını sil
+            const { error } = await supabase.from('profiles').delete().eq('id', user.id);
+            if (error) throw error;
+
+            alert("Profiliniz silindi/sıfırlandı. Kurulum ekranına yönlendiriliyorsunuz.");
+            router.push('/profil'); // Onboarding'e atar
+        } catch (error: any) {
+            console.error(error);
+            alert("Silme işlemi başarısız: " + error.message);
+        }
+    };
+
     const handleStartConversation = async () => {
         if (!user) return;
         setCreatingConversation(true);
@@ -406,6 +463,13 @@ export default function FreelancerProfile() {
                     <LogOut className="w-4 h-4 group-hover:scale-110 transition-transform" />
                     <span>Çıkış Yap</span>
                 </button>
+                <button
+                    onClick={handleDeleteProfile}
+                    className="flex items-center gap-2 px-4 py-2 bg-gray-100 hover:bg-gray-200 border border-gray-300 rounded-full text-sm font-bold transition-all text-gray-500 hover:text-red-600"
+                    title="Profili Sıfırla"
+                >
+                    <Trash2 className="w-4 h-4" />
+                </button>
             </div>
 
             {/* Light Theme Background Decoration */}
@@ -451,8 +515,25 @@ export default function FreelancerProfile() {
                                 ) : (
                                     <span className="text-4xl">😎</span>
                                 )}
-                                {!isEditingMode && <Play className="absolute w-8 h-8 text-white opacity-0 group-hover:opacity-100 transition-opacity" />}
+
+                                {/* Avatar Overlay (If no video) */}
+                                {!profile.video_url && profile.avatar_url && (
+                                    <img src={profile.avatar_url} alt="Avatar" className="absolute inset-0 w-full h-full object-cover" />
+                                )}
+
+                                {!isEditingMode && <Play className="absolute w-8 h-8 text-white opacity-0 group-hover:opacity-100 transition-opacity z-10" />}
                             </div>
+
+                            {/* Avatar Upload Button in Edit Mode */}
+                            {isEditingMode && (
+                                <div className="absolute top-0 right-0 z-20">
+                                    <input type="file" id="avatar-update" className="hidden" accept="image/*" onChange={handleAvatarUpload} />
+                                    <label htmlFor="avatar-update" className="bg-white text-gray-800 p-2 rounded-full cursor-pointer shadow-md hover:bg-gray-100 flex items-center justify-center">
+                                        {uploadingAvatar ? <div className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" /> : <Camera className="w-4 h-4" />}
+                                    </label>
+                                </div>
+                            )}
+
                             {isEditingMode && (
                                 <button onClick={(e) => { e.stopPropagation(); setIsVideoOpen(true); }} className="absolute bottom-0 right-0 bg-blue-500 text-white p-1 rounded-full text-xs z-10">
                                     <Edit2 className="w-3 h-3" />

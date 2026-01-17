@@ -23,9 +23,11 @@ export default function ProfileSetup() {
         hourlyRate: '',
         skills: '',
         bio: '',
-        cv_url: ''
+        cv_url: '',
+        avatar_url: '' // Yeni alan
     });
     const [uploadingCV, setUploadingCV] = useState(false);
+    const [uploadingAvatar, setUploadingAvatar] = useState(false);
 
     // 1. KULLANICI KONTROLÜ VE YÖNLENDİRME
     useEffect(() => {
@@ -97,7 +99,8 @@ export default function ProfileSetup() {
                 location: formData.location,
                 bio: formData.bio,
                 skills: formData.skills ? formData.skills.split(',').map(s => s.trim()) : [],
-                cv_url: formData.cv_url
+                cv_url: formData.cv_url,
+                avatar_url: formData.avatar_url // Kaydet
             };
 
             const { error } = await supabase.from('profiles').upsert(updates);
@@ -134,7 +137,7 @@ export default function ProfileSetup() {
             if (!session?.user) return;
 
             const fileExt = file.name.split('.').pop();
-            const fileName = `${session.user.id}/${Math.random()}.${fileExt}`;
+            const fileName = `${session.user.id}/cv_${Date.now()}.${fileExt}`;
 
             const { error: uploadError } = await supabase.storage
                 .from('cvs')
@@ -152,6 +155,37 @@ export default function ProfileSetup() {
             alert('CV yükleme hatası: ' + error.message);
         } finally {
             setUploadingCV(false);
+        }
+    }
+
+
+    const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        setUploadingAvatar(true);
+        try {
+            const { data: { session } } = await supabase.auth.getSession();
+            if (!session?.user) return;
+
+            const fileExt = file.name.split('.').pop();
+            const fileName = `${session.user.id}/avatar_${Date.now()}.${fileExt}`;
+
+            const { error: uploadError } = await supabase.storage
+                .from('avatars') // Bucket adı avatars olmalı
+                .upload(fileName, file);
+
+            if (uploadError) throw uploadError;
+
+            const { data: { publicUrl } } = supabase.storage
+                .from('avatars')
+                .getPublicUrl(fileName);
+
+            setFormData(prev => ({ ...prev, avatar_url: publicUrl }));
+        } catch (error: any) {
+            alert('Fotoğraf yükleme hatası: ' + error.message);
+        } finally {
+            setUploadingAvatar(false);
         }
     };
 
@@ -251,6 +285,36 @@ export default function ProfileSetup() {
                                 {/* Ortak Alanlar */}
                                 <div>
                                     <h3 className="text-lg font-bold text-[#2c3e50] mb-5 pb-2 border-b border-[#e0e6ed] flex items-center gap-2">👤 Temel Bilgiler</h3>
+
+                                    {/* Avatar Upload */}
+                                    <div className="flex justify-center mb-6">
+                                        <div className="relative group cursor-pointer w-24 h-24">
+                                            <input
+                                                type="file"
+                                                accept="image/*"
+                                                onChange={handleAvatarUpload}
+                                                className="hidden"
+                                                id="avatar-upload"
+                                            />
+                                            <label
+                                                htmlFor="avatar-upload"
+                                                className="block w-full h-full rounded-full overflow-hidden border-2 border-[#e0e6ed] group-hover:border-[#3498db] transition-colors relative"
+                                            >
+                                                {formData.avatar_url ? (
+                                                    <img src={formData.avatar_url} alt="Avatar" className="w-full h-full object-cover" />
+                                                ) : (
+                                                    <div className="w-full h-full bg-[#f8fafc] flex items-center justify-center text-3xl text-[#bdc3c7]">📷</div>
+                                                )}
+                                                {uploadingAvatar && (
+                                                    <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
+                                                        <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                                                    </div>
+                                                )}
+                                            </label>
+                                            <span className="text-xs text-[#7f8c8d] mt-2 block text-center w-32 -ml-4">Profil Fotoğrafı</span>
+                                        </div>
+                                    </div>
+
                                     <div className="grid gap-5">
                                         <div className="grid gap-2">
                                             <label htmlFor="name" className="text-sm font-bold text-[#34495e]">Ad Soyad *</label>

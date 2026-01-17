@@ -5,6 +5,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { User } from "@supabase/supabase-js";
 import NotificationBell from "@/components/NotificationBell";
+import LoadingFacts from "@/components/LoadingFacts";
 import Navbar from "@/components/Navbar";
 import {
   ShieldCheck,
@@ -108,7 +109,7 @@ export default function HomePage() {
     }, 30);
   };
 
-  if (loading) return <div className="h-screen flex items-center justify-center font-black text-[#4A90A4]">YÜKLENIYOR...</div>;
+  if (loading) return <LoadingFacts />;
 
   return (
     <div className="bg-white text-[#1a1a2e] overflow-x-hidden font-sans">
