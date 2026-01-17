@@ -24,7 +24,7 @@ export default function ProfileSetup() {
         skills: '',
         bio: '',
         cv_url: '',
-        avatar_url: '' // Yeni alan
+        avatar_url: ''
     });
     const [uploadingCV, setUploadingCV] = useState(false);
     const [uploadingAvatar, setUploadingAvatar] = useState(false);
@@ -32,7 +32,6 @@ export default function ProfileSetup() {
     // 1. KULLANICI KONTROLÜ VE YÖNLENDİRME
     useEffect(() => {
         const checkUser = async () => {
-            // getUser yerine getSession kullanıyoruz (HomePage ile tutarlı olması için)
             const { data: { session } } = await supabase.auth.getSession();
             const user = session?.user;
 
@@ -53,18 +52,13 @@ export default function ProfileSetup() {
                 else if (profile.role === 'employer') router.push('/profil/employer');
             }
 
+            // Email'i otomatik doldur
+            setFormData(prev => ({ ...prev, email: user.email || '' }));
             setLoading(false);
         };
 
         checkUser();
     }, [router, supabase]);
-
-
-    // Adım 1: Kullanıcı tipi seçimi
-    const handleUserTypeSelect = (type: 'freelancer' | 'employer') => {
-        setUserType(type);
-        setStep(2);
-    };
 
     // Form değişiklikleri
     const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
@@ -72,7 +66,23 @@ export default function ProfileSetup() {
         setFormData(prev => ({ ...prev, [name]: value }));
     };
 
-    // Form gönderimi
+    // Adım 1: Temel bilgiler formu tamamlandı, sonraki adıma geç
+    const handleStep1Submit = (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!formData.name.trim() || !formData.email.trim()) {
+            alert('Ad Soyad ve E-posta alanları zorunludur.');
+            return;
+        }
+        setStep(2);
+    };
+
+    // Adım 2: Kullanıcı tipi seçimi
+    const handleUserTypeSelect = (type: 'freelancer' | 'employer') => {
+        setUserType(type);
+        setStep(3);
+    };
+
+    // Form gönderimi (Son adım)
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setLoading(true);
@@ -91,16 +101,16 @@ export default function ProfileSetup() {
             const updates = {
                 id: user.id,
                 full_name: userType === 'employer' ? formData.companyName : formData.name,
-                role: userType, // Rolü kaydet
+                role: userType,
                 updated_at: new Date().toISOString(),
-                // İsteğe bağlı alanları da ekleyelim ki boş gitmesin
                 title: formData.jobTitle,
                 hourly_rate: formData.hourlyRate,
                 location: formData.location,
                 bio: formData.bio,
+                phone: formData.phone,
                 skills: formData.skills ? formData.skills.split(',').map(s => s.trim()) : [],
                 cv_url: formData.cv_url,
-                avatar_url: formData.avatar_url // Kaydet
+                avatar_url: formData.avatar_url
             };
 
             const { error } = await supabase.from('profiles').upsert(updates);
@@ -110,7 +120,6 @@ export default function ProfileSetup() {
                 throw error;
             }
 
-            // Başarılı işlem sonrası yönlendirme
             if (userType === 'freelancer') {
                 router.push('/profil/freelancer');
             } else {
@@ -120,11 +129,8 @@ export default function ProfileSetup() {
         } catch (error: any) {
             console.error('Kayıt hatası:', error);
             alert(`Bir hata oluştu: ${error.message || 'Bilinmeyen hata'}`);
-            setLoading(false); // Hata durumunda loading'i kapat
+            setLoading(false);
         }
-        // Başarılı durumda yönlendirme olduğu için loading kapatmaya gerek yok (sayfa değişecek)
-        // Ancak router.push asenkron değil, hemen çalışır ama sayfa değişimi vakit alabilir.
-        // Yine de hata bloğunda loading kapatmak önemli.
     };
 
     const handleCVUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -158,7 +164,6 @@ export default function ProfileSetup() {
         }
     }
 
-
     const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (!file) return;
@@ -172,7 +177,7 @@ export default function ProfileSetup() {
             const fileName = `${session.user.id}/avatar_${Date.now()}.${fileExt}`;
 
             const { error: uploadError } = await supabase.storage
-                .from('avatars') // Bucket adı avatars olmalı
+                .from('avatars')
                 .upload(fileName, file);
 
             if (uploadError) throw uploadError;
@@ -209,18 +214,18 @@ export default function ProfileSetup() {
                     <p className="text-[#7f8c8d]">Profesyonel profilinizi oluşturun</p>
                 </header>
 
-                {/* İlerleme Çubuğu */}
+                {/* İlerleme Çubuğu - YENİ SIRALAMA */}
                 <div className="flex justify-between items-center max-w-[600px] mx-auto mb-12 relative">
                     <div className="absolute top-1/2 left-0 w-full h-[2px] bg-[#e0e6ed] -z-10 -translate-y-1/2"></div>
 
                     <div className={`flex flex-col items-center gap-2 bg-[#f8fafc] px-4 z-10 ${step >= 1 ? 'text-[#3498db]' : 'text-[#bdc3c7]'}`}>
                         <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold transition-all ${step >= 1 ? 'bg-[#3498db] text-white shadow-lg shadow-blue-200' : 'bg-[#bdc3c7] text-white'}`}>1</div>
-                        <span className="text-sm font-bold">Tip Seçimi</span>
+                        <span className="text-sm font-bold">Temel Bilgiler</span>
                     </div>
 
                     <div className={`flex flex-col items-center gap-2 bg-[#f8fafc] px-4 z-10 ${step >= 2 ? 'text-[#3498db]' : 'text-[#bdc3c7]'}`}>
                         <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold transition-all ${step >= 2 ? 'bg-[#3498db] text-white shadow-lg shadow-blue-200' : 'bg-[#bdc3c7] text-white'}`}>2</div>
-                        <span className="text-sm font-bold">Bilgileri Doldur</span>
+                        <span className="text-sm font-bold">Hesap Tipi</span>
                     </div>
 
                     <div className={`flex flex-col items-center gap-2 bg-[#f8fafc] px-4 z-10 ${step === 3 ? 'text-[#3498db]' : 'text-[#bdc3c7]'}`}>
@@ -231,8 +236,130 @@ export default function ProfileSetup() {
 
                 {/* Ana İçerik */}
                 <main className="bg-white rounded-2xl shadow-sm border border-[#e0e6ed] p-8 md:p-12 animate-[fadeIn_0.5s_ease]">
-                    {/* Adım 1: Kullanıcı Tipi Seçimi */}
+
+                    {/* ADIM 1: TEMEL BİLGİLER FORMU (YENİ - ÖNCE BU GELİYOR) */}
                     {!loading && step === 1 && (
+                        <div>
+                            <div className="text-center mb-10">
+                                <h2 className="text-2xl font-bold text-[#2c3e50] mb-2">Temel Bilgilerinizi Girin</h2>
+                                <p className="text-[#7f8c8d]">Profiliniz için gerekli bilgileri doldurun</p>
+                            </div>
+
+                            <form onSubmit={handleStep1Submit} className="max-w-[700px] mx-auto space-y-8">
+                                {/* Avatar Upload */}
+                                <div className="flex justify-center mb-6">
+                                    <div className="relative group cursor-pointer w-24 h-24">
+                                        <input
+                                            type="file"
+                                            accept="image/*"
+                                            onChange={handleAvatarUpload}
+                                            className="hidden"
+                                            id="avatar-upload"
+                                        />
+                                        <label
+                                            htmlFor="avatar-upload"
+                                            className="block w-full h-full rounded-full overflow-hidden border-2 border-[#e0e6ed] group-hover:border-[#3498db] transition-colors relative"
+                                        >
+                                            {formData.avatar_url ? (
+                                                <img src={formData.avatar_url} alt="Avatar" className="w-full h-full object-cover" />
+                                            ) : (
+                                                <div className="w-full h-full bg-[#f8fafc] flex items-center justify-center text-3xl text-[#bdc3c7]">📷</div>
+                                            )}
+                                            {uploadingAvatar && (
+                                                <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
+                                                    <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                                                </div>
+                                            )}
+                                        </label>
+                                        <span className="text-xs text-[#7f8c8d] mt-2 block text-center w-32 -ml-4">Profil Fotoğrafı</span>
+                                    </div>
+                                </div>
+
+                                <div className="grid gap-5">
+                                    <div className="grid gap-2">
+                                        <label htmlFor="name" className="text-sm font-bold text-[#34495e]">Ad Soyad *</label>
+                                        <input
+                                            type="text"
+                                            id="name"
+                                            name="name"
+                                            value={formData.name}
+                                            onChange={handleInputChange}
+                                            required
+                                            placeholder="Ahmet Yılmaz"
+                                            className="w-full p-3 border-2 border-[#e0e6ed] rounded-lg outline-none focus:border-[#3498db] transition-colors"
+                                        />
+                                    </div>
+
+                                    <div className="grid gap-2">
+                                        <label htmlFor="email" className="text-sm font-bold text-[#34495e]">E-posta Adresi *</label>
+                                        <input
+                                            type="email"
+                                            id="email"
+                                            name="email"
+                                            value={formData.email}
+                                            onChange={handleInputChange}
+                                            required
+                                            placeholder="ahmet@example.com"
+                                            className="w-full p-3 border-2 border-[#e0e6ed] rounded-lg outline-none focus:border-[#3498db] transition-colors"
+                                        />
+                                    </div>
+
+                                    <div className="grid md:grid-cols-2 gap-5">
+                                        <div className="grid gap-2">
+                                            <label htmlFor="phone" className="text-sm font-bold text-[#34495e]">Telefon</label>
+                                            <input
+                                                type="tel"
+                                                id="phone"
+                                                name="phone"
+                                                value={formData.phone}
+                                                onChange={handleInputChange}
+                                                placeholder="+90 5XX XXX XX XX"
+                                                className="w-full p-3 border-2 border-[#e0e6ed] rounded-lg outline-none focus:border-[#3498db] transition-colors"
+                                            />
+                                        </div>
+
+                                        <div className="grid gap-2">
+                                            <label htmlFor="location" className="text-sm font-bold text-[#34495e]">Konum</label>
+                                            <input
+                                                type="text"
+                                                id="location"
+                                                name="location"
+                                                value={formData.location}
+                                                onChange={handleInputChange}
+                                                placeholder="İstanbul, Türkiye"
+                                                className="w-full p-3 border-2 border-[#e0e6ed] rounded-lg outline-none focus:border-[#3498db] transition-colors"
+                                            />
+                                        </div>
+                                    </div>
+
+                                    <div className="grid gap-2">
+                                        <label htmlFor="bio" className="text-sm font-bold text-[#34495e]">Kısa Biyografi</label>
+                                        <textarea
+                                            id="bio"
+                                            name="bio"
+                                            value={formData.bio}
+                                            onChange={handleInputChange}
+                                            placeholder="Kendinizi kısaca tanıtın..."
+                                            rows={3}
+                                            className="w-full p-3 border-2 border-[#e0e6ed] rounded-lg outline-none focus:border-[#3498db] transition-colors resize-none"
+                                        />
+                                    </div>
+                                </div>
+
+                                <div className="flex justify-end pt-5">
+                                    <button
+                                        type="submit"
+                                        className="py-3 px-8 rounded-lg bg-[#3498db] text-white font-bold shadow-md hover:bg-[#2980b9] hover:-translate-y-0.5 transition-all"
+                                    >
+                                        Devam Et →
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                    )}
+
+                    {/* ADIM 2: KULLANICI TİPİ SEÇİMİ (ESKİ ADIM 1) */}
+                    {!loading && step === 2 && (
                         <div className="text-center">
                             <h2 className="text-2xl font-bold text-[#2c3e50] mb-2">Nasıl Katılmak İstersiniz?</h2>
                             <p className="text-[#7f8c8d] mb-10">Profesyonel ağımıza katılmak için lütfen bir seçenek belirleyin</p>
@@ -270,166 +397,149 @@ export default function ProfileSetup() {
                                     <span className="absolute top-4 right-4 bg-[#e3f2fd] text-[#1976d2] text-[10px] font-bold px-2 py-1 rounded-full uppercase tracking-wider">Kurumsal</span>
                                 </div>
                             </div>
+
+                            <div className="mt-8">
+                                <button
+                                    type="button"
+                                    onClick={() => setStep(1)}
+                                    className="py-3 px-6 rounded-lg text-[#7f8c8d] font-bold hover:bg-[#f8fafc] transition-colors"
+                                >
+                                    ← Geri
+                                </button>
+                            </div>
                         </div>
                     )}
 
-                    {/* Adım 2: Form Doldurma */}
-                    {step === 2 && (
+                    {/* ADIM 3: TİPE ÖZEL EK BİLGİLER (SON ADIM) */}
+                    {step === 3 && (
                         <div>
                             <div className="text-center mb-10">
-                                <h2 className="text-2xl font-bold text-[#2c3e50] mb-2">{userType === 'freelancer' ? 'Freelancer Profili' : 'İşveren Profili'} Oluştur</h2>
-                                <p className="text-[#7f8c8d]">Lütfen profiliniz için gerekli bilgileri doldurun</p>
+                                <h2 className="text-2xl font-bold text-[#2c3e50] mb-2">
+                                    {userType === 'freelancer' ? 'Freelancer Bilgileri' : 'Şirket Bilgileri'}
+                                </h2>
+                                <p className="text-[#7f8c8d]">Son birkaç bilgiyle profilinizi tamamlayın</p>
                             </div>
 
-                            <form onSubmit={handleSubmit} className="max-w-[700px] mx-auto space-y-10">
-                                {/* Ortak Alanlar */}
-                                <div>
-                                    <h3 className="text-lg font-bold text-[#2c3e50] mb-5 pb-2 border-b border-[#e0e6ed] flex items-center gap-2">👤 Temel Bilgiler</h3>
-
-                                    {/* Avatar Upload */}
-                                    <div className="flex justify-center mb-6">
-                                        <div className="relative group cursor-pointer w-24 h-24">
-                                            <input
-                                                type="file"
-                                                accept="image/*"
-                                                onChange={handleAvatarUpload}
-                                                className="hidden"
-                                                id="avatar-upload"
-                                            />
-                                            <label
-                                                htmlFor="avatar-upload"
-                                                className="block w-full h-full rounded-full overflow-hidden border-2 border-[#e0e6ed] group-hover:border-[#3498db] transition-colors relative"
-                                            >
-                                                {formData.avatar_url ? (
-                                                    <img src={formData.avatar_url} alt="Avatar" className="w-full h-full object-cover" />
-                                                ) : (
-                                                    <div className="w-full h-full bg-[#f8fafc] flex items-center justify-center text-3xl text-[#bdc3c7]">📷</div>
-                                                )}
-                                                {uploadingAvatar && (
-                                                    <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
-                                                        <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                                                    </div>
-                                                )}
-                                            </label>
-                                            <span className="text-xs text-[#7f8c8d] mt-2 block text-center w-32 -ml-4">Profil Fotoğrafı</span>
-                                        </div>
-                                    </div>
-
-                                    <div className="grid gap-5">
+                            <form onSubmit={handleSubmit} className="max-w-[700px] mx-auto space-y-8">
+                                {userType === 'freelancer' ? (
+                                    <div className="space-y-5">
                                         <div className="grid gap-2">
-                                            <label htmlFor="name" className="text-sm font-bold text-[#34495e]">Ad Soyad *</label>
+                                            <label htmlFor="jobTitle" className="text-sm font-bold text-[#34495e]">Meslek / Uzmanlık Alanı *</label>
                                             <input
                                                 type="text"
-                                                id="name"
-                                                name="name"
-                                                value={formData.name}
+                                                id="jobTitle"
+                                                name="jobTitle"
+                                                value={formData.jobTitle}
                                                 onChange={handleInputChange}
                                                 required
-                                                placeholder={userType === 'employer' ? "Şirket Temsilcisi Adı" : "Ahmet Yılmaz"}
+                                                placeholder="Örn: Frontend Developer"
                                                 className="w-full p-3 border-2 border-[#e0e6ed] rounded-lg outline-none focus:border-[#3498db] transition-colors"
                                             />
                                         </div>
 
                                         <div className="grid gap-2">
-                                            <label htmlFor="email" className="text-sm font-bold text-[#34495e]">E-posta Adresi *</label>
+                                            <label htmlFor="skills" className="text-sm font-bold text-[#34495e]">Yetenekler (virgülle ayırın)</label>
                                             <input
-                                                type="email"
-                                                id="email"
-                                                name="email"
-                                                value={formData.email}
+                                                type="text"
+                                                id="skills"
+                                                name="skills"
+                                                value={formData.skills}
                                                 onChange={handleInputChange}
-                                                required
-                                                placeholder="ahmet@example.com"
+                                                placeholder="React, TypeScript, Node.js"
                                                 className="w-full p-3 border-2 border-[#e0e6ed] rounded-lg outline-none focus:border-[#3498db] transition-colors"
                                             />
                                         </div>
-                                    </div>
-                                </div>
 
-                                {/* Kullanıcı Tipine Özel Alanlar */}
-                                {userType === 'freelancer' ? (
-                                    <div>
-                                        <h3 className="text-lg font-bold text-[#2c3e50] mb-5 pb-2 border-b border-[#e0e6ed] flex items-center gap-2">💼 Freelancer Bilgileri</h3>
-                                        <div className="grid gap-5">
-                                            <div className="grid gap-2">
-                                                <label htmlFor="jobTitle" className="text-sm font-bold text-[#34495e]">Meslek / Uzmanlık Alanı *</label>
+                                        <div className="grid gap-2">
+                                            <label htmlFor="hourlyRate" className="text-sm font-bold text-[#34495e]">Saatlik Ücret Beklentisi</label>
+                                            <div className="relative">
                                                 <input
                                                     type="text"
-                                                    id="jobTitle"
-                                                    name="jobTitle"
-                                                    value={formData.jobTitle}
+                                                    id="hourlyRate"
+                                                    name="hourlyRate"
+                                                    value={formData.hourlyRate}
                                                     onChange={handleInputChange}
-                                                    required
-                                                    placeholder="Örn: Frontend Developer"
-                                                    className="w-full p-3 border-2 border-[#e0e6ed] rounded-lg outline-none focus:border-[#3498db] transition-colors"
+                                                    placeholder="50"
+                                                    className="w-full p-3 border-2 border-[#e0e6ed] rounded-lg outline-none focus:border-[#3498db] transition-colors pr-16"
                                                 />
+                                                <span className="absolute right-4 top-1/2 -translate-y-1/2 text-[#7f8c8d] font-medium">$ / saat</span>
                                             </div>
+                                        </div>
 
-                                            <div className="grid gap-2">
-                                                <label htmlFor="hourlyRate" className="text-sm font-bold text-[#34495e]">Saatlik Ücret Beklentisi</label>
-                                                <div className="relative">
-                                                    <input
-                                                        type="text"
-                                                        id="hourlyRate"
-                                                        name="hourlyRate"
-                                                        value={formData.hourlyRate}
-                                                        onChange={handleInputChange}
-                                                        placeholder="50"
-                                                        className="w-full p-3 border-2 border-[#e0e6ed] rounded-lg outline-none focus:border-[#3498db] transition-colors pr-16"
-                                                    />
-                                                    <span className="absolute right-4 top-1/2 -translate-y-1/2 text-[#7f8c8d] font-medium">$ / saat</span>
-                                                </div>
-                                            </div>
-
-                                            <div className="grid gap-2">
-                                                <label htmlFor="cv" className="text-sm font-bold text-[#34495e]">CV / Özgeçmiş (PDF)</label>
-                                                <div className="flex items-center gap-4">
-                                                    <input
-                                                        type="file"
-                                                        id="cv"
-                                                        accept=".pdf"
-                                                        onChange={handleCVUpload}
-                                                        className="hidden"
-                                                    />
-                                                    <label
-                                                        htmlFor="cv"
-                                                        className={`cursor-pointer py-2 px-4 rounded-lg border-2 border-dashed border-[#e0e6ed] text-sm hover:border-[#3498db] transition-colors ${uploadingCV ? 'opacity-50 pointer-events-none' : ''}`}
-                                                    >
-                                                        {uploadingCV ? 'Yükleniyor...' : formData.cv_url ? 'CV Değiştir' : 'CV Yükle (.pdf)'}
-                                                    </label>
-                                                    {formData.cv_url && (
-                                                        <span className="text-xs text-green-600 font-bold">✓ CV Yüklendi</span>
-                                                    )}
-                                                </div>
+                                        <div className="grid gap-2">
+                                            <label htmlFor="cv" className="text-sm font-bold text-[#34495e]">CV / Özgeçmiş (PDF)</label>
+                                            <div className="flex items-center gap-4">
+                                                <input
+                                                    type="file"
+                                                    id="cv"
+                                                    accept=".pdf"
+                                                    onChange={handleCVUpload}
+                                                    className="hidden"
+                                                />
+                                                <label
+                                                    htmlFor="cv"
+                                                    className={`cursor-pointer py-2 px-4 rounded-lg border-2 border-dashed border-[#e0e6ed] text-sm hover:border-[#3498db] transition-colors ${uploadingCV ? 'opacity-50 pointer-events-none' : ''}`}
+                                                >
+                                                    {uploadingCV ? 'Yükleniyor...' : formData.cv_url ? 'CV Değiştir' : 'CV Yükle (.pdf)'}
+                                                </label>
+                                                {formData.cv_url && (
+                                                    <span className="text-xs text-green-600 font-bold">✓ CV Yüklendi</span>
+                                                )}
                                             </div>
                                         </div>
                                     </div>
                                 ) : (
-                                    <div>
-                                        <h3 className="text-lg font-bold text-[#2c3e50] mb-5 pb-2 border-b border-[#e0e6ed] flex items-center gap-2">🏢 Şirket Bilgileri</h3>
-                                        <div className="grid gap-5">
-                                            <div className="grid gap-2">
-                                                <label htmlFor="companyName" className="text-sm font-bold text-[#34495e]">Şirket Adı *</label>
-                                                <input
-                                                    type="text"
-                                                    id="companyName"
-                                                    name="companyName"
-                                                    value={formData.companyName}
-                                                    onChange={handleInputChange}
-                                                    required
-                                                    placeholder="TechCorp A.Ş."
-                                                    className="w-full p-3 border-2 border-[#e0e6ed] rounded-lg outline-none focus:border-[#3498db] transition-colors"
-                                                />
-                                            </div>
+                                    <div className="space-y-5">
+                                        <div className="grid gap-2">
+                                            <label htmlFor="companyName" className="text-sm font-bold text-[#34495e]">Şirket Adı *</label>
+                                            <input
+                                                type="text"
+                                                id="companyName"
+                                                name="companyName"
+                                                value={formData.companyName}
+                                                onChange={handleInputChange}
+                                                required
+                                                placeholder="TechCorp A.Ş."
+                                                className="w-full p-3 border-2 border-[#e0e6ed] rounded-lg outline-none focus:border-[#3498db] transition-colors"
+                                            />
+                                        </div>
+
+                                        <div className="grid gap-2">
+                                            <label htmlFor="jobTitle" className="text-sm font-bold text-[#34495e]">Sektör</label>
+                                            <input
+                                                type="text"
+                                                id="jobTitle"
+                                                name="jobTitle"
+                                                value={formData.jobTitle}
+                                                onChange={handleInputChange}
+                                                placeholder="Örn: Teknoloji, Finans, E-ticaret"
+                                                className="w-full p-3 border-2 border-[#e0e6ed] rounded-lg outline-none focus:border-[#3498db] transition-colors"
+                                            />
+                                        </div>
+
+                                        <div className="grid gap-2">
+                                            <label htmlFor="companySize" className="text-sm font-bold text-[#34495e]">Şirket Büyüklüğü</label>
+                                            <select
+                                                id="companySize"
+                                                name="companySize"
+                                                value={formData.companySize}
+                                                onChange={handleInputChange}
+                                                className="w-full p-3 border-2 border-[#e0e6ed] rounded-lg outline-none focus:border-[#3498db] transition-colors bg-white"
+                                            >
+                                                <option value="">Seçiniz</option>
+                                                <option value="1-10">1-10 Çalışan</option>
+                                                <option value="11-50">11-50 Çalışan</option>
+                                                <option value="51-200">51-200 Çalışan</option>
+                                                <option value="200+">200+ Çalışan</option>
+                                            </select>
                                         </div>
                                     </div>
                                 )}
 
-                                {/* Form Butonları */}
                                 <div className="flex justify-between pt-5">
                                     <button
                                         type="button"
-                                        onClick={() => setStep(1)}
+                                        onClick={() => setStep(2)}
                                         className="py-3 px-6 rounded-lg text-[#7f8c8d] font-bold hover:bg-[#f8fafc] transition-colors"
                                     >
                                         ← Geri
@@ -438,7 +548,7 @@ export default function ProfileSetup() {
                                         type="submit"
                                         className="py-3 px-8 rounded-lg bg-[#3498db] text-white font-bold shadow-md hover:bg-[#2980b9] hover:-translate-y-0.5 transition-all"
                                     >
-                                        Profilimi Oluştur ve Devam Et →
+                                        Profilimi Oluştur ve Başla 🚀
                                     </button>
                                 </div>
                             </form>

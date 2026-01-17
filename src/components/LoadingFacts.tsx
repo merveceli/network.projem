@@ -1,50 +1,124 @@
 "use client";
 import { useState, useEffect } from "react";
-import { Sparkles, Lightbulb } from "lucide-react";
-
-const FACTS = [
-    "İlk e-posta 1971 yılında Ray Tomlinson tarafından gönderildi.",
-    "Google'ın ilk adı 'BackRub' idi.",
-    "Dünyadaki web sitelerinin %43'ü WordPress kullanıyor.",
-    "Freelance kelimesi ilk kez Ivanhoe romanında 'paralı asker' anlamında kullanıldı.",
-    "Amazon'un ilk adı 'Cadabra' olacaktı.",
-    "Apple'ın logosundaki ısırık, elma ile kirazın karışmaması için eklendi.",
-    "İlk alan adı 'symbolics.com' 1985 yılında tescil edildi.",
-    "Dünyanın en zengin %1'i, küresel servetin %45'ine sahip.",
-    "Her gün ortalama 300 milyar e-posta gönderiliyor.",
-    "YouTube'a her dakika 500 saatlik video yükleniyor."
-];
 
 export default function LoadingFacts() {
-    const [fact, setFact] = useState("");
+    const [progress, setProgress] = useState(0);
+    const [factIndex, setFactIndex] = useState(0);
+
+    const FACTS = [
+        "İlk e-posta 1971 yılında Ray Tomlinson tarafından gönderildi.",
+        "Google'ın ilk adı 'BackRub' idi.",
+        "Dünyadaki web sitelerinin %43'ü WordPress kullanıyor.",
+        "Freelance kelimesi ilk kez Ivanhoe romanında 'paralı asker' anlamında kullanıldı.",
+        "Amazon'un ilk adı 'Cadabra' olacaktı.",
+    ];
 
     useEffect(() => {
-        setFact(FACTS[Math.floor(Math.random() * FACTS.length)]);
+        setFactIndex(Math.floor(Math.random() * FACTS.length));
 
-        const interval = setInterval(() => {
-            setFact(FACTS[Math.floor(Math.random() * FACTS.length)]);
-        }, 3000);
+        // Progress animation
+        const progressInterval = setInterval(() => {
+            setProgress(prev => {
+                if (prev >= 100) return 100;
+                return prev + Math.random() * 15;
+            });
+        }, 200);
 
-        return () => clearInterval(interval);
+        // Fact rotation
+        const factInterval = setInterval(() => {
+            setFactIndex(prev => (prev + 1) % FACTS.length);
+        }, 3500);
+
+        return () => {
+            clearInterval(progressInterval);
+            clearInterval(factInterval);
+        };
     }, []);
 
     return (
-        <div className="flex flex-col items-center justify-center p-8 text-center animate-in fade-in zoom-in duration-500">
-            <div className="w-16 h-16 bg-blue-50 dark:bg-blue-900/20 rounded-full flex items-center justify-center mb-6 relative">
-                <div className="absolute inset-0 border-4 border-blue-100 dark:border-blue-900 rounded-full border-t-blue-600 animate-spin" />
-                <Lightbulb className="w-8 h-8 text-blue-600 dark:text-blue-400 animate-pulse" />
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-gradient-to-br from-[#1a1a2e] via-[#16213e] to-[#0f3460] overflow-hidden">
+            {/* Animated background orbs */}
+            <div className="absolute inset-0 overflow-hidden">
+                <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-[#FF6B35]/20 rounded-full blur-3xl animate-pulse" />
+                <div className="absolute bottom-1/4 right-1/4 w-80 h-80 bg-[#4A90A4]/20 rounded-full blur-3xl animate-pulse delay-1000" />
+                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-white/5 rounded-full blur-3xl" />
             </div>
 
-            <h3 className="text-xl font-black text-gray-900 dark:text-white mb-2 tracking-tight">
-                Net-Work Yükleniyor...
-            </h3>
+            {/* Main content */}
+            <div className="relative z-10 flex flex-col items-center justify-center px-6 max-w-lg mx-auto">
+                {/* Logo with animation */}
+                <div className="relative mb-8">
+                    {/* Glow effect */}
+                    <div className="absolute inset-0 bg-[#FF6B35] blur-2xl opacity-30 animate-pulse scale-150" />
 
-            <div className="max-w-md bg-gray-50 dark:bg-zinc-800/50 rounded-xl p-4 border border-gray-100 dark:border-zinc-800">
-                <p className="text-sm font-medium text-gray-600 dark:text-gray-300 flex items-center justify-center gap-2">
-                    <Sparkles className="w-4 h-4 text-amber-500 flex-shrink-0" />
-                    "{fact}"
+                    {/* Logo text */}
+                    <h1 className="relative text-5xl md:text-6xl font-[900] tracking-tighter text-white">
+                        Net-Work
+                        <span className="text-[#FF6B35] animate-bounce inline-block">.</span>
+                    </h1>
+                </div>
+
+                {/* Spinner */}
+                <div className="relative w-20 h-20 mb-8">
+                    {/* Outer ring */}
+                    <div className="absolute inset-0 border-4 border-white/10 rounded-full" />
+                    {/* Spinning ring */}
+                    <div className="absolute inset-0 border-4 border-transparent border-t-[#FF6B35] border-r-[#4A90A4] rounded-full animate-spin" />
+                    {/* Inner glow */}
+                    <div className="absolute inset-3 bg-gradient-to-br from-[#FF6B35]/20 to-[#4A90A4]/20 rounded-full backdrop-blur-sm" />
+                    {/* Center icon */}
+                    <div className="absolute inset-0 flex items-center justify-center">
+                        <svg className="w-8 h-8 text-white/80" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                        </svg>
+                    </div>
+                </div>
+
+                {/* Progress bar */}
+                <div className="w-full max-w-xs mb-8">
+                    <div className="h-1.5 bg-white/10 rounded-full overflow-hidden backdrop-blur-sm">
+                        <div
+                            className="h-full bg-gradient-to-r from-[#FF6B35] to-[#4A90A4] rounded-full transition-all duration-300 ease-out"
+                            style={{ width: `${Math.min(progress, 100)}%` }}
+                        />
+                    </div>
+                    <p className="text-center text-white/40 text-xs mt-2 font-medium">
+                        Yükleniyor...
+                    </p>
+                </div>
+
+                {/* Fact card with glassmorphism */}
+                <div className="relative group">
+                    {/* Card glow */}
+                    <div className="absolute -inset-1 bg-gradient-to-r from-[#FF6B35]/30 to-[#4A90A4]/30 rounded-2xl blur opacity-50 group-hover:opacity-75 transition duration-500" />
+
+                    {/* Card */}
+                    <div className="relative bg-white/10 backdrop-blur-xl border border-white/20 rounded-2xl p-6 max-w-sm">
+                        <div className="flex items-start gap-3">
+                            <span className="text-2xl flex-shrink-0">💡</span>
+                            <p className="text-white/80 text-sm leading-relaxed font-medium animate-fadeIn">
+                                {FACTS[factIndex]}
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Subtitle */}
+                <p className="mt-8 text-white/30 text-xs font-medium tracking-widest uppercase">
+                    Türkiye'nin Freelancer Ağı
                 </p>
             </div>
+
+            {/* CSS for fadeIn animation */}
+            <style jsx>{`
+                @keyframes fadeIn {
+                    from { opacity: 0; transform: translateY(10px); }
+                    to { opacity: 1; transform: translateY(0); }
+                }
+                .animate-fadeIn {
+                    animation: fadeIn 0.5s ease-out;
+                }
+            `}</style>
         </div>
     );
 }
