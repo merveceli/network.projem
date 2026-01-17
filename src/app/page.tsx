@@ -135,18 +135,18 @@ export default function HomePage() {
             Türkiyenin ilk ücretsiz,komisyonsuz ve doğrulanmış freelancer ağı. <br />
             <span className="opacity-80">Komisyon yok. Ücret yok. Oyun yok.</span>
           </p>
-          <div className="bg-white border border-black/5 p-2.5 rounded-[30px] flex w-full max-w-[650px] mx-auto shadow-xl">
+          <div className="bg-white border border-black/5 p-2.5 rounded-[30px] flex flex-col md:flex-row w-full max-w-[650px] mx-auto shadow-xl gap-3 md:gap-0">
             <input
               type="text"
               placeholder="Hangi yeteneği arıyorsun? (Yazılımcı, Editör...)"
-              className="flex-1 border-none bg-transparent py-4 px-6 outline-none text-[17px] text-gray-800 placeholder:text-gray-400"
+              className="flex-1 border-none bg-transparent py-3 px-4 md:py-4 md:px-6 outline-none text-[15px] md:text-[17px] text-gray-800 placeholder:text-gray-400 w-full text-center md:text-left"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
             />
             <button
               onClick={handleSearch}
-              className="bg-[#1a1a2e] text-white border-none px-10 rounded-[25px] font-[800] cursor-pointer hover:scale-105 transition-transform"
+              className="bg-[#1a1a2e] text-white border-none py-3 md:py-0 px-10 rounded-[25px] font-[800] cursor-pointer hover:scale-105 transition-transform w-full md:w-auto"
             >
               Ara
             </button>

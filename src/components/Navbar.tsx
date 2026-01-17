@@ -63,6 +63,7 @@ export default function Navbar({ transparent = false }: NavbarProps) {
 
                 {/* Desktop Menu */}
                 <div className="hidden md:flex gap-[35px] items-center">
+                    <Link href="/yeni-ilan" className="bg-[#FF6B35] text-white border-none py-2.5 px-6 rounded-2xl font-[800] hover:scale-105 transition-transform no-underline text-sm shadow-[0_10px_20px_rgba(255,107,53,0.3)]">İlan Ver</Link>
                     <Link href="/ilanlar" className={`no-underline font-bold text-sm ${pathname === '/ilanlar' ? 'text-[#FF6B35]' : 'text-[#1a1a2e]'}`}>İş İlanları</Link>
                     <Link href="/yetenekler" className={`no-underline font-bold text-sm ${pathname === '/yetenekler' ? 'text-[#FF6B35]' : 'text-[#1a1a2e]'}`}>Yetenekler</Link>
                     {user ? (
@@ -97,6 +98,7 @@ export default function Navbar({ transparent = false }: NavbarProps) {
                         className="fixed inset-0 z-40 bg-white pt-24 px-6 md:hidden flex flex-col gap-6 overflow-y-auto"
                     >
                         <div className="flex flex-col gap-4 text-center">
+                            <Link href="/yeni-ilan" className="bg-[#FF6B35] text-white py-3 px-6 rounded-xl font-[800] text-lg hover:scale-105 transition-transform mx-4 shadow-lg">İlan Ver</Link>
                             <Link href="/ilanlar" className="text-xl font-bold py-3 border-b border-gray-100">İş İlanları</Link>
                             <Link href="/yetenekler" className="text-xl font-bold py-3 border-b border-gray-100">Yetenekler</Link>
 
