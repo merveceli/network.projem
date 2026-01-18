@@ -58,8 +58,9 @@ interface ProfileData {
     fast_responder?: boolean;
     services: ServicePackage[];
     portfolio: ProjectData[];
-    skills: { name: string, level: number, icon: string }[];
+    skills: string[]; // Changed from object array to string array for simplicity or match DB
     looking_for_team?: boolean;
+    portfolio_pdf_url?: string | null;
 }
 
 interface Comment {
@@ -114,7 +115,10 @@ export default function FreelancerProfile() {
     const [newComment, setNewComment] = useState("");
     const [submittingComment, setSubmittingComment] = useState(false);
     const [uploadingCv, setUploadingCv] = useState(false);
+    const [uploadingPortfolioPdf, setUploadingPortfolioPdf] = useState(false);
     const [uploadingAvatar, setUploadingAvatar] = useState(false);
+    const [uploadingProjectImage, setUploadingProjectImage] = useState(false);
+    const [skillInput, setSkillInput] = useState("");
 
     // UI States
     const [isVideoOpen, setIsVideoOpen] = useState(false);
@@ -154,11 +158,8 @@ export default function FreelancerProfile() {
                         looking_for_team: data.looking_for_team,
                         services: data.services && (data.services as any[]).length > 0 ? data.services : DEFAULT_PACKAGES,
                         portfolio: data.portfolio && (data.portfolio as any[]).length > 0 ? data.portfolio : DEFAULT_PROJECTS,
-                        skills: data.skills && (data.skills as any[]).length > 0 ? data.skills : [
-                            { name: "JavaScript", level: 90, icon: "" },
-                            { name: "React", level: 85, icon: "" },
-                            { name: "Node.js", level: 70, icon: "" }
-                        ]
+                        skills: data.skills || ["React", "TypeScript"], // Fallback if null
+                        portfolio_pdf_url: data.portfolio_pdf_url
                     });
 
                     const { data: commentData } = await supabase
@@ -198,6 +199,7 @@ export default function FreelancerProfile() {
                 // video_status intentionally not updated here usually
                 avatar_url: profile.avatar_url,
                 cv_url: profile.cv_url,
+                portfolio_pdf_url: profile.portfolio_pdf_url,
                 looking_for_team: profile.looking_for_team
             }).eq('id', user.id);
 
@@ -250,6 +252,63 @@ export default function FreelancerProfile() {
         } finally {
             setUploadingCv(false);
         }
+    };
+
+    const handlePortfolioPdfUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file || !user) return;
+        if (file.size > 10 * 1024 * 1024) { // 10MB limit for portfolio
+            toastError("Dosya boyutu 10MB'dan küçük olmalı.");
+            return;
+        }
+        setUploadingPortfolioPdf(true);
+        try {
+            const fileExt = file.name.split('.').pop();
+            const fileName = `${user.id}/portfolio_${Date.now()}.${fileExt}`;
+            const { error: uploadError } = await supabase.storage.from('cvs').upload(fileName, file); // Reusing cvs bucket for now
+            if (uploadError) throw uploadError;
+            const { data: { publicUrl } } = supabase.storage.from('cvs').getPublicUrl(fileName);
+            setProfile(prev => ({ ...prev, portfolio_pdf_url: publicUrl }));
+            success("Portfolyo PDF yüklendi. Kaydetmeyi unutmayın!");
+        } catch (e: any) {
+            toastError("Hata: " + e.message);
+        } finally {
+            setUploadingPortfolioPdf(false);
+        }
+    };
+
+    const handleProjectImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file || !user || !editingProject) return;
+        setUploadingProjectImage(true);
+        try {
+            const fileExt = file.name.split('.').pop();
+            const fileName = `${user.id}/project_${editingProject.id}_${Date.now()}.${fileExt}`;
+            // Assuming 'public' bucket or similar exists, or use 'avatars' if no other option, though not ideal.
+            // Let's us 'avatars' for simplicity in this constrained env or 'cvs'.
+            // Better: 'project_images' bucket. I will assume it exists or use 'avatars' as fallback if not.
+            // Risk: 'avatars' might be public.
+            const { error: uploadError } = await supabase.storage.from('avatars').upload(fileName, file);
+            if (uploadError) throw uploadError;
+            const { data: { publicUrl } } = supabase.storage.from('avatars').getPublicUrl(fileName);
+            setEditingProject(prev => prev ? ({ ...prev, imageUrl: publicUrl }) : null);
+            success("Proje görseli yüklendi.");
+        } catch (e: any) {
+            toastError("Görsel yükleme hatası: " + e.message);
+        } finally {
+            setUploadingProjectImage(false);
+        }
+    };
+
+    const addSkill = () => {
+        if (skillInput.trim() && !profile.skills.includes(skillInput.trim())) {
+            setProfile(prev => ({ ...prev, skills: [...prev.skills, skillInput.trim()] }));
+            setSkillInput("");
+        }
+    };
+
+    const removeSkill = (skill: string) => {
+        setProfile(prev => ({ ...prev, skills: prev.skills.filter(s => s !== skill) }));
     };
 
     const handlePostComment = async () => {
@@ -334,7 +393,7 @@ export default function FreelancerProfile() {
 
             profile.skills.forEach(skill => {
                 doc.rect(xPos, yPos - 6, 40, 10, 'F');
-                doc.text(skill.name, xPos + 5, yPos);
+                doc.text(skill, xPos + 5, yPos);
                 xPos += 45;
                 if (xPos > 150) {
                     xPos = 20;
@@ -457,6 +516,22 @@ export default function FreelancerProfile() {
                                 <>
                                     <h1 className="text-2xl font-bold text-gray-900 mb-1">{profile.full_name}</h1>
                                     <p className="text-blue-600 font-medium mb-4">{profile.title}</p>
+
+                                    {/* Looking for Team Toggle Visual */}
+                                    {profile.looking_for_team && (
+                                        <div className="mb-4 inline-flex items-center gap-2 px-3 py-1 bg-purple-100 text-purple-700 rounded-full text-xs font-bold">
+                                            <Users className="w-4 h-4" /> Takım Arkadaşı Arıyor
+                                        </div>
+                                    )}
+
+                                    {isEditingMode && (
+                                        <div className="flex items-center justify-center gap-2 mb-4 cursor-pointer" onClick={() => setProfile(p => ({ ...p, looking_for_team: !p.looking_for_team }))}>
+                                            <div className={`w-10 h-6 rounded-full p-1 transition-colors ${profile.looking_for_team ? 'bg-purple-600' : 'bg-gray-300'}`}>
+                                                <div className={`w-4 h-4 rounded-full bg-white shadow-sm transition-transform ${profile.looking_for_team ? 'translate-x-4' : ''}`} />
+                                            </div>
+                                            <span className="text-sm font-medium text-gray-600">Takım Arkadaşı Arıyorum</span>
+                                        </div>
+                                    )}
                                 </>
                             )}
 
@@ -494,15 +569,30 @@ export default function FreelancerProfile() {
                                     </label>
                                 ) : (
                                     profile.cv_url && (
-                                        <div className="flex gap-2">
-                                            <a href={profile.cv_url} target="_blank" className="flex-1 py-3 bg-white border border-gray-200 text-gray-700 rounded-xl font-semibold hover:bg-gray-50 transition-colors flex items-center justify-center gap-2 block no-underline text-xs">
-                                                Orijinal CV
-                                            </a>
-                                            <button onClick={downloadPDF} className="flex-[2] py-3 bg-slate-800 text-white rounded-xl font-semibold hover:bg-slate-900 transition-colors flex items-center justify-center gap-2 text-xs">
-                                                <Download className="w-4 h-4" /> PDF Oluştur
-                                            </button>
+                                        <div className="flex flex-col gap-2">
+                                            <div className="flex gap-2">
+                                                <a href={profile.cv_url} target="_blank" className="flex-1 py-3 bg-white border border-gray-200 text-gray-700 rounded-xl font-semibold hover:bg-gray-50 transition-colors flex items-center justify-center gap-2 block no-underline text-xs">
+                                                    CV Görüntüle
+                                                </a>
+                                                <button onClick={downloadPDF} className="flex-[2] py-3 bg-slate-800 text-white rounded-xl font-semibold hover:bg-slate-900 transition-colors flex items-center justify-center gap-2 text-xs">
+                                                    <Download className="w-4 h-4" /> PDF İndir
+                                                </button>
+                                            </div>
+                                            {profile.portfolio_pdf_url && (
+                                                <a href={profile.portfolio_pdf_url} target="_blank" className="w-full py-3 bg-orange-50 text-orange-600 border border-orange-200 rounded-xl font-bold hover:bg-orange-100 transition-colors flex items-center justify-center gap-2 text-xs">
+                                                    <Briefcase className="w-4 h-4" /> Portfolyo PDF
+                                                </a>
+                                            )}
                                         </div>
                                     )
+                                )}
+
+                                {isEditingMode && (
+                                    <label className={`w-full py-3 border-2 border-dashed border-gray-300 rounded-xl text-gray-500 font-medium hover:bg-gray-50 cursor-pointer flex items-center justify-center gap-2 transition-colors ${uploadingPortfolioPdf ? 'opacity-50' : ''}`}>
+                                        <Briefcase className="w-4 h-4" />
+                                        {uploadingPortfolioPdf ? 'Yükleniyor...' : 'Portfolyo PDF Yükle'}
+                                        <input type="file" className="hidden" accept=".pdf" onChange={handlePortfolioPdfUpload} />
+                                    </label>
                                 )}
                             </div>
                         </Card>
@@ -514,11 +604,25 @@ export default function FreelancerProfile() {
                             </h3>
                             <div className="flex flex-wrap gap-2">
                                 {profile.skills.map((skill, i) => (
-                                    <span key={i} className="px-3 py-1 bg-gray-100 text-gray-700 rounded-lg text-sm font-medium border border-gray-200">
-                                        {skill.name}
+                                    <span key={i} className="px-3 py-1 bg-gray-100 text-gray-700 rounded-lg text-sm font-medium border border-gray-200 flex items-center gap-1">
+                                        {skill}
+                                        {isEditingMode && (
+                                            <button onClick={() => removeSkill(skill)} className="text-red-400 hover:text-red-600 ml-1">×</button>
+                                        )}
                                     </span>
                                 ))}
-                                {isEditingMode && <button onClick={() => info('Yetenek ekleme yakında')} className="px-3 py-1 border border-dashed border-gray-300 text-gray-400 rounded-lg text-sm hover:text-blue-500 hover:border-blue-500">+ Ekle</button>}
+                                {isEditingMode && (
+                                    <div className="flex items-center gap-2">
+                                        <input
+                                            value={skillInput}
+                                            onChange={(e) => setSkillInput(e.target.value)}
+                                            onKeyDown={(e) => e.key === 'Enter' && addSkill()}
+                                            className="px-2 py-1 text-sm border rounded w-24 outline-none focus:border-blue-500"
+                                            placeholder="Yetenek..."
+                                        />
+                                        <button onClick={addSkill} className="px-2 py-1 bg-blue-500 text-white rounded text-sm hover:bg-blue-600">+</button>
+                                    </div>
+                                )}
                             </div>
                         </Card>
 
@@ -586,14 +690,22 @@ export default function FreelancerProfile() {
                                     className="group bg-white rounded-xl border border-gray-200 overflow-hidden hover:shadow-md transition-shadow cursor-pointer flex flex-col h-full"
                                     onClick={() => !isEditingMode && setSelectedProject(project)}
                                 >
-                                    <div className={`h-40 bg-gradient-to-br ${project.imageUrl} relative p-4 flex flex-col justify-end`}>
-                                        {isEditingMode && (
-                                            <div className="absolute top-2 right-2 flex gap-1 z-10">
-                                                <button onClick={(e) => { e.stopPropagation(); setEditingProject(project); }} className="p-1.5 bg-white/20 backdrop-blur-md rounded-md text-white hover:bg-white/30"><Edit2 className="w-3 h-3" /></button>
-                                                <button onClick={(e) => { e.stopPropagation(); if (confirm('Silinsin mi?')) { setProfile(p => ({ ...p, portfolio: p.portfolio.filter(x => x.id !== project.id) })); success('Silindi') } }} className="p-1.5 bg-red-500/80 backdrop-blur-md rounded-md text-white hover:bg-red-600"><Trash2 className="w-3 h-3" /></button>
-                                            </div>
+                                    <div className={`h-40 relative p-4 flex flex-col justify-end bg-slate-100 overflow-hidden`}>
+                                        {project.imageUrl && !project.imageUrl.startsWith('from-') ? (
+                                            <img src={project.imageUrl} alt={project.title} className="absolute inset-0 w-full h-full object-cover" />
+                                        ) : (
+                                            <div className={`absolute inset-0 bg-gradient-to-br ${project.imageUrl.startsWith('from-') ? project.imageUrl : 'from-blue-600 to-indigo-600'}`} />
                                         )}
-                                        <span className="inline-block px-2 py-1 rounded-md bg-white/90 text-xs font-bold text-gray-900 self-start mb-2 backdrop-blur-sm shadow-sm">{project.category}</span>
+                                        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
+                                        <div className="relative z-10">
+                                            {isEditingMode && (
+                                                <div className="absolute top-2 right-2 flex gap-1 z-10">
+                                                    <button onClick={(e) => { e.stopPropagation(); setEditingProject(project); }} className="p-1.5 bg-white/20 backdrop-blur-md rounded-md text-white hover:bg-white/30"><Edit2 className="w-3 h-3" /></button>
+                                                    <button onClick={(e) => { e.stopPropagation(); if (confirm('Silinsin mi?')) { setProfile(p => ({ ...p, portfolio: p.portfolio.filter(x => x.id !== project.id) })); success('Silindi') } }} className="p-1.5 bg-red-500/80 backdrop-blur-md rounded-md text-white hover:bg-red-600"><Trash2 className="w-3 h-3" /></button>
+                                                </div>
+                                            )}
+                                            <span className="inline-block px-2 py-1 rounded-md bg-white/90 text-xs font-bold text-gray-900 self-start mb-2 backdrop-blur-sm shadow-sm">{project.category}</span>
+                                        </div>
                                     </div>
                                     <div className="p-5 flex-1 flex flex-col">
                                         <h3 className="font-bold text-gray-900 text-lg mb-2">{project.title}</h3>
@@ -762,8 +874,23 @@ export default function FreelancerProfile() {
                 {/* Simple Edit Project Modal (Minimal implementation for editing) */}
                 {editingProject && (
                     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-                        <div className="bg-white rounded-2xl p-6 w-full max-w-md space-y-4">
+                        <div className="bg-white rounded-2xl p-6 w-full max-w-md space-y-4 max-h-[90vh] overflow-y-auto">
                             <h3 className="font-bold text-lg">Proje Düzenle</h3>
+
+                            {/* Image Upload for Project */}
+                            <div className="w-full h-32 bg-gray-100 rounded-lg flex items-center justify-center relative overflow-hidden group">
+                                {editingProject.imageUrl && !editingProject.imageUrl.startsWith('from-') ? (
+                                    <img src={editingProject.imageUrl} alt="Project" className="w-full h-full object-cover" />
+                                ) : (
+                                    <span className="text-gray-400 text-xs">Görsel Yok (Varsayılan Gradient)</span>
+                                )}
+                                <label className="absolute inset-0 bg-black/50 flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer text-white">
+                                    <Camera className="w-6 h-6 mb-1" />
+                                    <span className="text-xs font-bold">{uploadingProjectImage ? 'Yükleniyor...' : 'Görsel Yükle'}</span>
+                                    <input type="file" className="hidden" accept="image/*" onChange={handleProjectImageUpload} />
+                                </label>
+                            </div>
+
                             <input placeholder="Başlık" className="w-full border p-2 rounded" value={editingProject.title} onChange={e => setEditingProject({ ...editingProject, title: e.target.value })} />
                             <input placeholder="Kategori" className="w-full border p-2 rounded" value={editingProject.category} onChange={e => setEditingProject({ ...editingProject, category: e.target.value })} />
                             <textarea placeholder="Açıklama" className="w-full border p-2 rounded h-24" value={editingProject.description} onChange={e => setEditingProject({ ...editingProject, description: e.target.value })} />
