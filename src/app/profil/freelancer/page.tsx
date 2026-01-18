@@ -374,22 +374,6 @@ export default function FreelancerProfile() {
         }
     };
 
-    // --- RENDER HELPERS ---
-    const Card = ({ children, className = "" }: { children: React.ReactNode, className?: string }) => (
-        <div className={`bg-white rounded-2xl border border-gray-100 shadow-sm p-6 ${className}`}>
-            {children}
-        </div>
-    );
-
-    const SectionTitle = ({ icon: Icon, title }: { icon: any, title: string }) => (
-        <h2 className="text-xl font-bold text-gray-900 mb-5 flex items-center gap-2">
-            <div className="p-2 bg-blue-50 rounded-lg text-blue-600">
-                <Icon className="w-5 h-5" />
-            </div>
-            {title}
-        </h2>
-    );
-
     if (loading) return <div className="min-h-screen flex items-center justify-center bg-gray-50 text-gray-400">Yükleniyor...</div>;
 
     return (
@@ -803,6 +787,22 @@ export default function FreelancerProfile() {
         </div>
     );
 }
+
+// --- RENDER HELPERS ---
+const Card = ({ children, className = "" }: { children: React.ReactNode, className?: string }) => (
+    <div className={`bg-white rounded-2xl border border-gray-100 shadow-sm p-6 ${className}`}>
+        {children}
+    </div>
+);
+
+const SectionTitle = ({ icon: Icon, title }: { icon: any, title: string }) => (
+    <h2 className="text-xl font-bold text-gray-900 mb-5 flex items-center gap-2">
+        <div className="p-2 bg-blue-50 rounded-lg text-blue-600">
+            <Icon className="w-5 h-5" />
+        </div>
+        {title}
+    </h2>
+);
 
 // Icon Helper
 const CodeIcon = (props: any) => (
