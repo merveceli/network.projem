@@ -18,7 +18,8 @@ import {
     UserCheck,
     Lock,
     Unlock,
-    ExternalLink
+    ExternalLink,
+    MessageSquare
 } from 'lucide-react';
 import Link from 'next/link';
 
@@ -81,13 +82,26 @@ interface ProfileComment {
     target_profile: { full_name: string };
 }
 
+interface Feedback {
+    id: string;
+    user_id: string;
+    message: string;
+    rating: number;
+    page_url: string;
+    created_at: string;
+    profiles?: {
+        full_name: string;
+        email: string;
+    };
+}
+
 export default function AdminPage() {
     const supabase = createClient();
     const router = useRouter();
     const [isLoading, setIsLoading] = useState(true);
     const [isAdmin, setIsAdmin] = useState(false);
 
-    const [activeTab, setActiveTab] = useState<'moderation' | 'reports' | 'users' | 'jobs'>('moderation');
+    const [activeTab, setActiveTab] = useState<'moderation' | 'reports' | 'users' | 'jobs' | 'feedbacks'>('moderation');
 
     // Data States
     const [pendingJobs, setPendingJobs] = useState<Job[]>([]);
@@ -96,6 +110,7 @@ export default function AdminPage() {
     const [users, setUsers] = useState<UserProfile[]>([]);
     const [allJobs, setAllJobs] = useState<Job[]>([]);
     const [pendingComments, setPendingComments] = useState<ProfileComment[]>([]);
+    const [feedbacks, setFeedbacks] = useState<Feedback[]>([]);
     const [searchTerm, setSearchTerm] = useState('');
 
     useEffect(() => {
@@ -151,6 +166,13 @@ export default function AdminPage() {
             .eq('status', 'pending')
             .order('created_at', { ascending: false });
         if (commentData) setPendingComments(commentData as any);
+
+        // Fetch Feedbacks
+        const { data: feedbackData } = await supabase
+            .from('user_feedback')
+            .select('*, profiles:user_id(full_name, email)')
+            .order('created_at', { ascending: false });
+        if (feedbackData) setFeedbacks(feedbackData as any);
     };
 
     const handleJobModeration = async (id: string, action: 'approve' | 'reject' | 'delete') => {
@@ -248,6 +270,7 @@ export default function AdminPage() {
                         { id: 'reports', label: 'Şikayetler', icon: <Flag className="w-5 h-5" />, count: reports.filter(r => r.status === 'pending').length },
                         { id: 'users', label: 'Kullanıcılar', icon: <Users className="w-5 h-5" /> },
                         { id: 'jobs', label: 'İş İlanları', icon: <Briefcase className="w-5 h-5" /> },
+                        { id: 'feedbacks', label: 'Geri Bildirimler', icon: <MessageSquare className="w-5 h-5" /> },
                     ].map(tab => (
                         <button
                             key={tab.id}
@@ -462,6 +485,44 @@ export default function AdminPage() {
                                         <Trash2 className="w-5 h-5" />
                                     </button>
                                 </div>
+                            ))}
+                        </div>
+                    </div>
+                )}
+
+                {/* FEEDBACKS TAB */}
+                {activeTab === 'feedbacks' && (
+                    <div className="space-y-8">
+                        <SectionHeader title="Kullanıcı Geri Bildirimleri" count={feedbacks.length} />
+                        <div className="grid gap-6">
+                            {feedbacks.map(feedback => (
+                                <AdminCard
+                                    key={feedback.id}
+                                    title={feedback.profiles?.full_name || 'Anonim Kullanıcı'}
+                                    subTitle={feedback.profiles?.email || 'E-posta yok'}
+                                    meta={new Date(feedback.created_at).toLocaleDateString()}
+                                >
+                                    <div className="flex items-center gap-1 mb-3 text-yellow-500">
+                                        {[...Array(5)].map((_, i) => (
+                                            <svg
+                                                key={i}
+                                                className={`w-4 h-4 ${i < (feedback.rating || 0) ? 'fill-current' : 'text-gray-300 fill-gray-300'}`}
+                                                xmlns="http://www.w3.org/2000/svg"
+                                                viewBox="0 0 24 24"
+                                            >
+                                                <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
+                                            </svg>
+                                        ))}
+                                        <span className="text-xs text-gray-400 font-bold ml-2">({feedback.rating || 0}/5)</span>
+                                    </div>
+                                    <p className="text-slate-600 mb-4 bg-yellow-50/50 p-4 rounded-xl text-sm border border-yellow-100/50 italic">
+                                        "{feedback.message}"
+                                    </p>
+                                    <div className="flex items-center gap-2 text-[10px] font-bold text-slate-400 bg-slate-100 w-fit px-3 py-1.5 rounded-full">
+                                        <ExternalLink className="w-3 h-3" />
+                                        Sayfa: {feedback.page_url}
+                                    </div>
+                                </AdminCard>
                             ))}
                         </div>
                     </div>
