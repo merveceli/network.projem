@@ -11,7 +11,8 @@ import {
     User as UserIcon, Briefcase, FolderKanban, Award, MessageSquare,
     Link as LinkIcon, Camera, LayoutGrid, List,
     ShieldCheck, ShieldAlert, AlertTriangle, Download, FileText, Users,
-    GraduationCap, Languages
+    GraduationCap, Languages,
+    Layout, ExternalLink
 } from 'lucide-react';
 import Link from 'next/link';
 import Image from 'next/image';
@@ -491,25 +492,6 @@ export default function FreelancerProfile() {
                                         <input value={profile.availability} onChange={e => saveProfileField('availability', e.target.value)} className="w-full text-center bg-white border rounded text-sm font-bold text-gray-900" />
                                     ) : (
                                         <div className="font-bold text-green-600">{profile.availability}</div>
-                                    )}
-                                </div>
-                                <div className="col-span-2 text-center p-2 rounded-lg bg-indigo-50 border border-indigo-100 mt-2">
-                                    {isEditingMode ? (
-                                        <label className="flex items-center justify-center gap-2 cursor-pointer">
-                                            <input
-                                                type="checkbox"
-                                                checked={profile.looking_for_team}
-                                                onChange={e => saveProfileField('looking_for_team', e.target.checked)}
-                                                className="w-4 h-4 text-indigo-600 rounded focus:ring-indigo-500"
-                                            />
-                                            <span className="text-xs font-bold text-indigo-900">Takım Arkadaşı Arıyorum</span>
-                                        </label>
-                                    ) : (
-                                        profile.looking_for_team && (
-                                            <div className="text-xs font-black text-indigo-600 flex items-center justify-center gap-1 animate-pulse">
-                                                <Users className="w-3 h-3" /> TAKIM ARKADAŞI ARIYOR
-                                            </div>
-                                        )
                                     )}
                                 </div>
                             </div>

@@ -133,7 +133,11 @@ export default function AdminPage() {
         if (reportData) setReports(reportData as any);
 
         // Fetch Users
-        const { data: userData } = await supabase.from('profiles').select('*').order('created_at', { ascending: false });
+        const { data: userData, error: userError } = await supabase.from('profiles').select('*').order('created_at', { ascending: false });
+        if (userError) {
+            console.error("User Fetch Error:", userError);
+            alert("Kullanıcıları çekerken hata: " + userError.message);
+        }
         if (userData) setUsers(userData as any);
 
         // Fetch All Jobs
