@@ -4,6 +4,7 @@ import { useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import Link from "next/link";
 import { Search, Briefcase, Filter as FilterIcon, ChevronDown, Clock, Banknote, ArrowLeft } from "lucide-react";
+import SmartJobMatcher from "@/components/SmartJobMatcher";
 
 import { Suspense } from "react";
 
@@ -223,6 +224,7 @@ function JobListingContent() {
 
                     {/* İLAN LİSTESİ (SAĞ) */}
                     <main className="flex-1">
+                        <SmartJobMatcher />
                         <div className="hidden lg:block mb-4">
                             <Link href="/" className="inline-flex items-center gap-2 text-sm text-gray-500 hover:text-blue-600 transition-colors">
                                 <ArrowLeft className="w-4 h-4" />

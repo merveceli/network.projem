@@ -353,6 +353,15 @@ export default function ChatWindow({ currentUser, conversationId, onBack }: { cu
                 </div>
             </div>
 
+            {/* SECURITY WARNING */}
+            <div className="bg-orange-50 px-6 py-2 border-b border-orange-100 flex items-start gap-3 z-10 shrink-0">
+                <ShieldAlert className="w-5 h-5 text-orange-600 mt-0.5 shrink-0" />
+                <p className="text-xs text-orange-800 font-medium leading-relaxed">
+                    <strong className="font-bold">GÜVENLİ ÖDEME HATIRLATMASI:</strong> Tüm ödemeler platform üzerinden yapılmalıdır.
+                    İş teslimi almadan ödemeyi asla site dışından (IBAN vb.) yapmayın. Dolandırıcılık riskine karşı dikkatli olun.
+                </p>
+            </div>
+
             {/* Messages Area */}
             <div className="flex-1 overflow-y-auto p-6 space-y-6 z-0 scroll-smooth">
                 {/* Date Divider */}

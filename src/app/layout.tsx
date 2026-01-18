@@ -66,6 +66,7 @@ export const metadata: Metadata = {
 
 import AiAssistant from "@/components/AiAssistant";
 import Footer from "@/components/Footer";
+import FeedbackWidget from "@/components/FeedbackWidget";
 
 import { ToastProvider } from "@/contexts/ToastContext";
 
@@ -85,6 +86,7 @@ export default function RootLayout({
               <EmailVerificationBanner />
               {children}
               <AiAssistant />
+              <FeedbackWidget />
               <Footer />
             </ToastProvider>
           </NotificationProvider>

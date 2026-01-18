@@ -58,6 +58,7 @@ interface ProfileData {
     services: ServicePackage[];
     portfolio: ProjectData[];
     skills: { name: string, level: number, icon: string }[];
+    looking_for_team?: boolean;
 }
 
 interface Comment {
@@ -149,6 +150,7 @@ export default function FreelancerProfile() {
                         is_secure: data.is_secure,
                         is_suspicious: data.is_suspicious,
                         fast_responder: data.fast_responder,
+                        looking_for_team: data.looking_for_team,
                         services: data.services && (data.services as any[]).length > 0 ? data.services : DEFAULT_PACKAGES,
                         portfolio: data.portfolio && (data.portfolio as any[]).length > 0 ? data.portfolio : DEFAULT_PROJECTS,
                         skills: data.skills && (data.skills as any[]).length > 0 ? data.skills : [
@@ -194,7 +196,8 @@ export default function FreelancerProfile() {
                 video_url: profile.video_url,
                 // video_status intentionally not updated here usually
                 avatar_url: profile.avatar_url,
-                cv_url: profile.cv_url
+                cv_url: profile.cv_url,
+                looking_for_team: profile.looking_for_team
             }).eq('id', user.id);
 
             if (error) throw error;
@@ -263,6 +266,111 @@ export default function FreelancerProfile() {
             setNewComment("");
         }
         setSubmittingComment(false);
+    };
+
+    const downloadPDF = async () => {
+        try {
+            // Dinamik import to avoid SSR issues
+            const { jsPDF } = await import("jspdf");
+
+            const doc = new jsPDF();
+
+            // Fonts & Colors
+            const mainColor = [37, 99, 235]; // Blue-600
+            const darkColor = [30, 41, 59];  // Slate-800
+
+            // --- HEADER ---
+            // Name
+            doc.setFontSize(24);
+            doc.setTextColor(darkColor[0], darkColor[1], darkColor[2]);
+            doc.setFont("helvetica", "bold");
+            doc.text(profile.full_name, 20, 30);
+
+            // Title
+            doc.setFontSize(14);
+            doc.setTextColor(mainColor[0], mainColor[1], mainColor[2]);
+            doc.text(profile.title.toUpperCase(), 20, 38);
+
+            // Contact Info (Right Side)
+            doc.setFontSize(10);
+            doc.setTextColor(100, 116, 139); // Slate-500
+            doc.text(profile.email, 190, 30, { align: 'right' });
+            doc.text(profile.phone || '', 190, 35, { align: 'right' });
+            doc.text(profile.location, 190, 40, { align: 'right' });
+
+            // Line
+            doc.setDrawColor(226, 232, 240);
+            doc.line(20, 45, 190, 45);
+
+            // --- BIO ---
+            if (profile.bio) {
+                doc.setFontSize(12);
+                doc.setTextColor(darkColor[0], darkColor[1], darkColor[2]);
+                doc.setFont("helvetica", "bold");
+                doc.text("HAKKIMDA", 20, 60);
+
+                doc.setFont("helvetica", "normal");
+                doc.setFontSize(10);
+                doc.setTextColor(71, 85, 105);
+                const bioLines = doc.splitTextToSize(profile.bio, 170);
+                doc.text(bioLines, 20, 68);
+            }
+
+            // --- SKILLS ---
+            const skillsY = profile.bio ? 100 : 60;
+            doc.setFontSize(12);
+            doc.setTextColor(darkColor[0], darkColor[1], darkColor[2]);
+            doc.setFont("helvetica", "bold");
+            doc.text("YETENEKLER", 20, skillsY);
+
+            let xPos = 20;
+            let yPos = skillsY + 10;
+
+            doc.setFont("helvetica", "normal");
+            doc.setFontSize(10);
+            doc.setFillColor(241, 245, 249); // bg-slate-100
+            doc.setTextColor(51, 65, 85);
+
+            profile.skills.forEach(skill => {
+                doc.rect(xPos, yPos - 6, 40, 10, 'F');
+                doc.text(skill.name, xPos + 5, yPos);
+                xPos += 45;
+                if (xPos > 150) {
+                    xPos = 20;
+                    yPos += 12;
+                }
+            });
+
+            // --- SERVICES ---
+            const servicesY = yPos + 20;
+            doc.setFontSize(12);
+            doc.setTextColor(darkColor[0], darkColor[1], darkColor[2]);
+            doc.setFont("helvetica", "bold");
+            doc.text("HİZMETLER", 20, servicesY);
+
+            let sY = servicesY + 10;
+            profile.services.forEach(pkg => {
+                doc.setFont("helvetica", "bold");
+                doc.setTextColor(mainColor[0], mainColor[1], mainColor[2]);
+                doc.text(`${pkg.name} (${pkg.price})`, 20, sY);
+
+                doc.setFont("helvetica", "normal");
+                doc.setTextColor(71, 85, 105);
+                doc.text(pkg.features.join(", "), 80, sY, { maxWidth: 110 });
+                sY += 10;
+            });
+
+            // Footer
+            doc.setFontSize(8);
+            doc.setTextColor(150);
+            doc.text("Net-Work. Tarafindan Olusturulmustur", 105, 280, { align: 'center' });
+
+            doc.save(`${profile.full_name.replace(/\s+/g, '_')}_CV.pdf`);
+            success("CV başarıyla indirildi.");
+        } catch (e: any) {
+            console.error(e);
+            toastError("PDF oluşturulurken hata: " + e.message);
+        }
     };
 
     // --- RENDER HELPERS ---
@@ -385,6 +493,25 @@ export default function FreelancerProfile() {
                                         <div className="font-bold text-green-600">{profile.availability}</div>
                                     )}
                                 </div>
+                                <div className="col-span-2 text-center p-2 rounded-lg bg-indigo-50 border border-indigo-100 mt-2">
+                                    {isEditingMode ? (
+                                        <label className="flex items-center justify-center gap-2 cursor-pointer">
+                                            <input
+                                                type="checkbox"
+                                                checked={profile.looking_for_team}
+                                                onChange={e => saveProfileField('looking_for_team', e.target.checked)}
+                                                className="w-4 h-4 text-indigo-600 rounded focus:ring-indigo-500"
+                                            />
+                                            <span className="text-xs font-bold text-indigo-900">Takım Arkadaşı Arıyorum</span>
+                                        </label>
+                                    ) : (
+                                        profile.looking_for_team && (
+                                            <div className="text-xs font-black text-indigo-600 flex items-center justify-center gap-1 animate-pulse">
+                                                <Users className="w-3 h-3" /> TAKIM ARKADAŞI ARIYOR
+                                            </div>
+                                        )
+                                    )}
+                                </div>
                             </div>
 
                             {/* Action Buttons */}
@@ -401,9 +528,14 @@ export default function FreelancerProfile() {
                                     </label>
                                 ) : (
                                     profile.cv_url && (
-                                        <a href={profile.cv_url} target="_blank" className="w-full py-3 bg-white border border-gray-200 text-gray-700 rounded-xl font-semibold hover:bg-gray-50 transition-colors flex items-center justify-center gap-2 block no-underline">
-                                            <Download className="w-4 h-4" /> CV İndir
-                                        </a>
+                                        <div className="flex gap-2">
+                                            <a href={profile.cv_url} target="_blank" className="flex-1 py-3 bg-white border border-gray-200 text-gray-700 rounded-xl font-semibold hover:bg-gray-50 transition-colors flex items-center justify-center gap-2 block no-underline text-xs">
+                                                Orijinal CV
+                                            </a>
+                                            <button onClick={downloadPDF} className="flex-[2] py-3 bg-slate-800 text-white rounded-xl font-semibold hover:bg-slate-900 transition-colors flex items-center justify-center gap-2 text-xs">
+                                                <Download className="w-4 h-4" /> PDF Oluştur
+                                            </button>
+                                        </div>
                                     )
                                 )}
                             </div>

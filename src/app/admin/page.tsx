@@ -178,7 +178,20 @@ export default function AdminPage() {
         }
     };
 
-    const handleUserAction = async (userId: string, action: 'suspend' | 'activate' | 'make_admin' | 'remove_admin') => {
+    const handleUserAction = async (userId: string, action: 'suspend' | 'activate' | 'make_admin' | 'remove_admin' | 'delete') => {
+        if (action === 'delete') {
+            if (!confirm('DİKKAT: Kullanıcıyı silmek üzeresiniz. Bu işlem geri alınamaz ve profili kalıcı olarak siler. (Sadece profil verisi silinir, giriş yetkisi kalabilir). Onaylıyor musunuz?')) return;
+
+            const { error } = await supabase.from('profiles').delete().eq('id', userId);
+
+            if (!error) {
+                setUsers(prev => prev.filter(u => u.id !== userId));
+            } else {
+                alert('Silme işlemi başarısız: ' + error.message);
+            }
+            return;
+        }
+
         const updates: any = {};
         if (action === 'suspend') updates.is_suspended = true;
         if (action === 'activate') updates.is_suspended = false;
@@ -411,6 +424,9 @@ export default function AdminPage() {
                                                     </button>
                                                     <button onClick={() => handleUserAction(user.id, user.is_admin ? 'remove_admin' : 'make_admin')} className="p-2 bg-slate-100 text-slate-600 rounded-xl hover:bg-slate-200" title="Admin Yap / Al">
                                                         <ShieldAlert className="w-5 h-5" />
+                                                    </button>
+                                                    <button onClick={() => handleUserAction(user.id, 'delete')} className="p-2 bg-red-100 text-red-600 rounded-xl hover:bg-red-200" title="Kullanıcıyı Sil">
+                                                        <Trash2 className="w-5 h-5" />
                                                     </button>
                                                 </div>
                                             </td>
