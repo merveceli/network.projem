@@ -130,11 +130,11 @@ export default function HomePage() {
 
         <div className="relative z-10 w-[92%] max-w-[950px] bg-white/45 backdrop-blur-[12px] border border-white/30 rounded-[50px] py-16 px-10 shadow-2xl">
           <h1 className="text-[clamp(32px,7vw,72px)] font-[900] tracking-[-3px] mb-5 text-[#1a1a2e] leading-[1.1]">
-            Kariyerine <span className="text-[#FF6B35]">Yön Ver</span>
+            Gerçek <span className="text-[#FF6B35]">Freelancer Ağı </span>
           </h1>
           <p className="text-xl text-gray-800 max-w-[680px] mx-auto mb-11 leading-relaxed font-bold">
             Türkiyenin ilk ücretsiz,komisyonsuz ve doğrulanmış freelancer ağı. <br />
-            <span className="opacity-80">Komisyon yok. Ücret yok. Oyun yok.</span>
+            <span className="opacity-80">Komisyon yok. Ücret yok. Aracı yok.</span>
           </p>
           <div className="bg-white border border-black/5 p-2.5 rounded-[30px] flex flex-col md:flex-row w-full max-w-[650px] mx-auto shadow-xl gap-3 md:gap-0">
             <input
@@ -149,7 +149,7 @@ export default function HomePage() {
               onClick={handleSearch}
               className="bg-[#1a1a2e] text-white border-none py-3 md:py-0 px-10 rounded-[25px] font-[800] cursor-pointer hover:scale-105 transition-transform w-full md:w-auto"
             >
-              Ara
+              Keşfet
             </button>
           </div>
         </div>

@@ -1,36 +1,83 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# NET-WORK
 
-## Getting Started
+NET-WORK, dijital freelancer’lar için oluşturulmuş  
+**tamamen ücretsiz**, **manuel moderasyonlu** ve  
+**bot ilanlara karşı** bir iş ağı platformudur.
 
-First, run the development server:
+Bu proje; ücretli ilanlar, ücretli başvurular ve sahte işlerle  
+zamanı ve emeği sömürülen freelancer’lar için geliştirilmiştir.
+
+---
+
+## 🚫 NET-WORK NEDEN VAR?
+
+Birçok freelance platform:
+- İlan vermek için ücret ister
+- Başvuru başına para alır
+- Bot ve sahte ilanlara göz yumar
+- Freelancer’ı değersizleştirir
+
+NET-WORK bu sistemi kabul etmez.
+
+Burada:
+- İlanlar **para ile öne çıkmaz**
+- Başvurular **tamamen ücretsizdir**
+- Tüm ilanlar **manuel olarak incelenir**
+- Şüpheli ilan ve hesaplar **yayınlanmaz**
+
+---
+
+## 👥 Hedef Kitle
+
+- Dijital freelancer’lar (tasarımcı, yazılımcı, içerik üretici vb.)
+- Öğrenciler ve kariyerinin başındaki üreticiler
+- Ücretli platformlarda dışlanan veya sömürülen kişiler
+
+---
+
+## ❌ Bu Platform Kimler İçin Değildir?
+
+- “En ucuza kim yapar?” mantığıyla ilan açanlar  
+- Spam veya kopyala–yapıştır ilan paylaşanlar  
+- Freelancer’ı değersizleştiren işverenler  
+- Sistemi kandırmaya çalışan kullanıcılar  
+
+---
+
+## 🔐 Güven ve Moderasyon
+
+- Tüm ilanlar **yayınlanmadan önce onaylanır**
+- İlan ve profiller **şikayet edilebilir**
+- Uygunsuz içerikler **yayından kaldırılır**
+- Tek kişi = tek hesap politikası uygulanır  
+  (Google, GitHub ve LinkedIn ile giriş)
+
+NET-WORK’te görünürlük:
+**parayla değil, kurallara uymakla kazanılır.**
+
+---
+
+## 🧠 Teknik Altyapı
+
+- Next.js (App Router)
+- Responsive tasarım
+- Mesajlaşma ve engelleme sistemi
+- Bildirimler
+- Admin paneli
+- Küfür ve uygunsuz içerik filtreleme
+
+Bu proje **kar amacı gütmez**.  
+Öncelik büyüme değil, **topluluk güvenidir**.
+
+---
+
+## 🚀 Geliştirme Ortamı
+
+Projeyi lokal ortamda çalıştırmak için:
 
 ```bash
 npm run dev
-# or
+# veya
 yarn dev
-# or
+# veya
 pnpm dev
-# or
-bun dev
-```
-
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
-
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
-
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
-
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.

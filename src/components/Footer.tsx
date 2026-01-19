@@ -8,7 +8,7 @@ export default function Footer() {
             <div className="grid grid-cols-[repeat(auto-fit,minmax(250px,1fr))] gap-[60px] border-b border-white/10 pb-[60px] mb-[40px]">
                 <div>
                     <h3 className="text-[26px] font-[950] mb-[20px]">Net-Work<span className="text-[#FF6B35]">.</span></h3>
-                    <p className="opacity-50 leading-[1.8] text-[14px]">Türkiye'nin kar amacı gütmeyen en büyük freelancer ve işveren topluluğu. Güvenilir, şeffaf ve ücretsiz.</p>
+                    <p className="opacity-50 leading-[1.8] text-[14px]">Net-Work, kar amacı gütmeyen, ücretsiz ve doğrulanmış bir freelancer ağıdır.Amacımız yetenekleri ve işverenleri aracısız buluşturmaktır.</p>
                 </div>
                 <div>
                     <h4 className="mb-[25px] font-[900]">Hızlı Menü</h4>
@@ -38,8 +38,10 @@ export default function Footer() {
                         </div>
                     </div>
                     <p className="mt-3 text-[12px] opacity-40 leading-relaxed mb-3">
-                        İstanbul Üniversitesi Bilgisayar Programcılığı son sınıf öğrencisi. <br />
-                        20 yaşında, İstanbul'da yaşayan Freelance Yazılımcı & Grafik Tasarımcı.
+                        Kurucu & Geliştirici
+                        Merve Çelik
+                        Full Stack Developer
+                        Net-Work projesinin fikir ve yazılım geliştiricisi. <br />
                     </p>
                     <a href="https://www.linkedin.com/in/merve-ç-a2a2832b2" target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 bg-[#0077b5] text-white px-3 py-1.5 rounded-md text-[12px] font-bold hover:opacity-90 transition-opacity no-underline">
                         <span>LinkedIn</span>
