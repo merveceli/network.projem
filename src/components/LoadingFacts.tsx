@@ -39,8 +39,8 @@ export default function LoadingFacts() {
         <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-gradient-to-br from-[#1a1a2e] via-[#16213e] to-[#0f3460] overflow-hidden">
             {/* Animated background orbs */}
             <div className="absolute inset-0 overflow-hidden">
-                <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-[#FF6B35]/20 rounded-full blur-3xl animate-pulse" />
-                <div className="absolute bottom-1/4 right-1/4 w-80 h-80 bg-[#4A90A4]/20 rounded-full blur-3xl animate-pulse delay-1000" />
+                <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-[#E91E63]/20 rounded-full blur-3xl animate-pulse" />
+                <div className="absolute bottom-1/4 right-1/4 w-80 h-80 bg-[#00BFA5]/20 rounded-full blur-3xl animate-pulse delay-1000" />
                 <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-white/5 rounded-full blur-3xl" />
             </div>
 
@@ -49,12 +49,12 @@ export default function LoadingFacts() {
                 {/* Logo with animation */}
                 <div className="relative mb-8">
                     {/* Glow effect */}
-                    <div className="absolute inset-0 bg-[#FF6B35] blur-2xl opacity-30 animate-pulse scale-150" />
+                    <div className="absolute inset-0 bg-[#E91E63] blur-2xl opacity-30 animate-pulse scale-150" />
 
                     {/* Logo text */}
                     <h1 className="relative text-5xl md:text-6xl font-[900] tracking-tighter text-white">
                         Net-Work
-                        <span className="text-[#FF6B35] animate-bounce inline-block">.</span>
+                        <span className="text-[#E91E63] animate-bounce inline-block">.</span>
                     </h1>
                 </div>
 
@@ -63,9 +63,9 @@ export default function LoadingFacts() {
                     {/* Outer ring */}
                     <div className="absolute inset-0 border-4 border-white/10 rounded-full" />
                     {/* Spinning ring */}
-                    <div className="absolute inset-0 border-4 border-transparent border-t-[#FF6B35] border-r-[#4A90A4] rounded-full animate-spin" />
+                    <div className="absolute inset-0 border-4 border-transparent border-t-[#E91E63] border-r-[#00BFA5] rounded-full animate-spin" />
                     {/* Inner glow */}
-                    <div className="absolute inset-3 bg-gradient-to-br from-[#FF6B35]/20 to-[#4A90A4]/20 rounded-full backdrop-blur-sm" />
+                    <div className="absolute inset-3 bg-gradient-to-br from-[#E91E63]/20 to-[#00BFA5]/20 rounded-full backdrop-blur-sm" />
                     {/* Center icon */}
                     <div className="absolute inset-0 flex items-center justify-center">
                         <svg className="w-8 h-8 text-white/80" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -78,7 +78,7 @@ export default function LoadingFacts() {
                 <div className="w-full max-w-xs mb-8">
                     <div className="h-1.5 bg-white/10 rounded-full overflow-hidden backdrop-blur-sm">
                         <div
-                            className="h-full bg-gradient-to-r from-[#FF6B35] to-[#4A90A4] rounded-full transition-all duration-300 ease-out"
+                            className="h-full bg-gradient-to-r from-[#E91E63] to-[#00BFA5] rounded-full transition-all duration-300 ease-out"
                             style={{ width: `${Math.min(progress, 100)}%` }}
                         />
                     </div>
@@ -90,7 +90,7 @@ export default function LoadingFacts() {
                 {/* Fact card with glassmorphism */}
                 <div className="relative group">
                     {/* Card glow */}
-                    <div className="absolute -inset-1 bg-gradient-to-r from-[#FF6B35]/30 to-[#4A90A4]/30 rounded-2xl blur opacity-50 group-hover:opacity-75 transition duration-500" />
+                    <div className="absolute -inset-1 bg-gradient-to-r from-[#E91E63]/30 to-[#00BFA5]/30 rounded-2xl blur opacity-50 group-hover:opacity-75 transition duration-500" />
 
                     {/* Card */}
                     <div className="relative bg-white/10 backdrop-blur-xl border border-white/20 rounded-2xl p-6 max-w-sm">

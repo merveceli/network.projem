@@ -1,29 +1,23 @@
 "use client";
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import Link from "next/link";
 import Image from "next/image";
 import { User } from "@supabase/supabase-js";
-import NotificationBell from "@/components/NotificationBell";
-import LoadingFacts from "@/components/LoadingFacts";
 import Navbar from "@/components/Navbar";
+import Chatbot from "@/components/Chatbot";
 import {
   ShieldCheck,
-  FileEdit,
-  Handshake,
-  Rocket,
-  Star,
-  Lock,
-  ChevronRight,
+  Users,
+  Briefcase,
+  CheckCircle2,
+  Search,
+  ArrowRight,
   TrendingUp,
-  Target,
-  Zap
+  Zap,
 } from "lucide-react";
-
 import { useRouter } from "next/navigation";
-import NewsletterSection from "@/components/NewsletterSection";
 
-// --- VERİ TİPLERİ ---
 interface Profile { full_name: string | null; role: string | null; }
 interface Job { id: string; title: string | null; description: string | null; category: string | null; creator_id: string; is_filled: boolean; urgency?: string; images?: string[]; profiles: Profile | null; }
 
@@ -42,222 +36,207 @@ export default function HomePage() {
     }
   };
 
-  const [counts, setCounts] = useState({ freelancers: 0, jobs: 0, projects: 0 });
-  const hasCounted = useRef(false);
-
   useEffect(() => {
     const init = async () => {
       try {
         const { data: { session } } = await supabase.auth.getSession();
         setUser(session?.user ?? null);
-
-        if (session?.user) {
-          const { data } = await supabase.from("jobs").select(`id, title, description, category, creator_id, is_filled, urgency, images, profiles:creator_id(full_name, role)`).eq('status', 'approved').order("created_at", { ascending: false });
-          if (data) setJobs(data as unknown as Job[]);
-        } else {
-          setJobs([]); // Clear jobs if not logged in
-        }
+        const { data } = await supabase.from("jobs").select(`id, title, description, category, creator_id, is_filled, urgency, images, profiles:creator_id(full_name, role)`).eq('status', 'approved').order("created_at", { ascending: false }).limit(6);
+        if (data) setJobs(data as unknown as Job[]);
       } finally {
         setLoading(false);
       }
     };
     init();
+  }, []);
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user ?? null);
-      if (session?.user) {
-        init(); // Re-fetch data when session is confirmed
-      } else {
-        setJobs([]);
-      }
-    });
-
-    const observer = new IntersectionObserver((entries) => {
-      entries.forEach(entry => {
-        if (entry.isIntersecting) {
-          entry.target.classList.add("opacity-100", "translate-y-0");
-          entry.target.classList.remove("opacity-0", "translate-y-12");
-          if (entry.target.id === "stats-section" && !hasCounted.current) {
-            hasCounted.current = true;
-            startCounting();
-          }
-        }
-      });
-    }, { threshold: 0.1 });
-
-    const timer = setTimeout(() => {
-      document.querySelectorAll(".reveal").forEach(el => observer.observe(el));
-    }, 600);
-
-    return () => {
-      clearTimeout(timer);
-      subscription.unsubscribe();
-    };
-  }, [loading]);
-
-  const startCounting = () => {
-    const targets = { freelancers: 1250, jobs: 450, projects: 890 };
-    let step = 0;
-    const interval = setInterval(() => {
-      step++;
-      setCounts({
-        freelancers: Math.floor((targets.freelancers / 60) * step),
-        jobs: Math.floor((targets.jobs / 60) * step),
-        projects: Math.floor((targets.projects / 60) * step),
-      });
-      if (step >= 60) clearInterval(interval);
-    }, 30);
-  };
-
-  if (loading) return <LoadingFacts />;
+  if (loading) return null;
 
   return (
-    <div className="bg-white text-[#1a1a2e] overflow-x-hidden font-sans">
-      <Navbar transparent={true} />
+    <div className="min-h-screen bg-white text-[#334155] font-sans selection:bg-[#89A8B2] selection:text-white">
+      {/* Import Serif Font */}
+      <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
 
+      <Navbar transparent={false} />
 
-      {/* HERO SECTION */}
-      <section className="h-[90vh] relative flex items-center justify-center text-center overflow-hidden">
-        {/* Optimized Background Image */}
-        <Image
-          src="https://images.pexels.com/photos/3183150/pexels-photo-3183150.jpeg?auto=compress&cs=tinysrgb&w=1920"
-          alt="Network Hero Background"
-          fill
-          priority
-          className="object-cover brightness-[0.8]"
-          quality={90}
-        />
+      {/* HERO SECTION - Elegant but Humble with Background Image */}
+      <header className="relative pt-40 pb-32 px-6 md:px-12 flex items-center min-h-[85vh] overflow-hidden">
+        {/* Background Image with Overlay */}
+        <div className="absolute inset-0 z-0">
+          <Image
+            src="https://images.pexels.com/photos/3184311/pexels-photo-3184311.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=2"
+            alt="Professional Background"
+            fill
+            className="object-cover"
+            priority
+          />
+          {/* Gradient Overlay for Readability */}
+          <div className="absolute inset-0 bg-gradient-to-r from-white via-white/95 to-white/40 md:to-transparent" />
+        </div>
 
-        <div className="relative z-10 w-[92%] max-w-[950px] bg-white/45 backdrop-blur-[12px] border border-white/30 rounded-[50px] py-16 px-10 shadow-2xl">
-          <h1 className="text-[clamp(32px,7vw,72px)] font-[900] tracking-[-3px] mb-5 text-[#1a1a2e] leading-[1.1]">
-            Gerçek <span className="text-[#FF6B35]">Freelancer Ağı </span>
-          </h1>
-          <p className="text-xl text-gray-800 max-w-[680px] mx-auto mb-11 leading-relaxed font-bold">
-            Türkiyenin ilk ücretsiz,komisyonsuz ve doğrulanmış freelancer ağı. <br />
-            <span className="opacity-80">Komisyon yok. Ücret yok. Aracı yok.</span>
-          </p>
-          <div className="bg-white border border-black/5 p-2.5 rounded-[30px] flex flex-col md:flex-row w-full max-w-[650px] mx-auto shadow-xl gap-3 md:gap-0">
-            <input
-              type="text"
-              placeholder="Hangi yeteneği arıyorsun? (Yazılımcı, Editör...)"
-              className="flex-1 border-none bg-transparent py-3 px-4 md:py-4 md:px-6 outline-none text-[15px] md:text-[17px] text-gray-800 placeholder:text-gray-400 w-full text-center md:text-left"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
-            />
-            <button
-              onClick={handleSearch}
-              className="bg-[#1a1a2e] text-white border-none py-3 md:py-0 px-10 rounded-[25px] font-[800] cursor-pointer hover:scale-105 transition-transform w-full md:w-auto"
-            >
-              Keşfet
-            </button>
+        <div className="max-w-7xl mx-auto relative z-10 w-full">
+          <div className="max-w-2xl animate-fade-in">
+            <div className="flex items-center gap-3 mb-6">
+              <span className="w-12 h-[1px] bg-[#89A8B2]"></span>
+              <span className="text-xs font-bold uppercase tracking-[0.2em] text-[#89A8B2]">
+                Ücretsiz ve Doğrulanmış Freelancer Ağı
+              </span>
+            </div>
+
+            <h1 className="text-5xl md:text-7xl font-playfair font-black text-[#1E293B] leading-[1.1] mb-8">
+              Adil Ortam.<br />
+              Kaliteli İş.<br />
+              <span className="italic text-[#89A8B2] font-serif">Gerçek Fırsatlar.</span>
+            </h1>
+
+            <p className="text-xl text-slate-600 max-w-xl leading-relaxed font-light mb-10">
+              Emeğinin karşılığını almak isteyen yetenekler ile dürüst işverenleri buluşturuyoruz.
+              <br />
+              <span className="font-semibold text-slate-800">Komisyon yok. Ücret yok. Aracı yok.</span>
+            </p>
+
+            {/* Refined Search */}
+            <div className="flex flex-col sm:flex-row gap-4 max-w-md">
+              <div className="flex-1 bg-white/90 backdrop-blur-sm border border-slate-200 rounded-lg p-1.5 flex transition-all shadow-sm focus-within:ring-2 focus-within:ring-[#89A8B2]/20 focus-within:border-[#89A8B2]">
+                <input
+                  type="text"
+                  placeholder="Yazılımcı, Tasarımcı, Çevirmen..."
+                  className="flex-1 px-4 py-3 outline-none text-slate-700 bg-transparent placeholder:text-slate-400"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
+                />
+                <button
+                  onClick={handleSearch}
+                  className="bg-[#1E293B] text-white px-6 py-3 rounded-md font-semibold hover:bg-[#334155] transition-all flex items-center gap-2"
+                >
+                  <Search className="w-4 h-4" />
+                  Ara
+                </button>
+              </div>
+            </div>
+
+            {/* Trust Badge Simple */}
+            <div className="flex items-center gap-3 mt-10 text-slate-500">
+              <ShieldCheck className="w-5 h-5 text-[#89A8B2]" />
+              <span className="text-sm font-medium tracking-tight">Tüm ilanlar manuel olarak onaylanır</span>
+            </div>
           </div>
         </div>
-      </section>
+      </header>
 
-      {/* İSTATİSTİKLER */}
-      <section id="stats-section" className="reveal opacity-0 translate-y-12 transition-all duration-1000 ease-out py-24 px-[8%] flex flex-wrap gap-10 justify-around bg-[#F8F9FA] text-center">
-        <div><h2 className="text-[52px] text-[#FF6B35] font-[900]">{counts.freelancers}+</h2><p className="font-bold opacity-60">Yetenekli Freelancer</p></div>
-        <div><h2 className="text-[52px] text-[#4A90A4] font-[900]">{counts.jobs}+</h2><p className="font-bold opacity-60">Aktif İlan</p></div>
-        <div><h2 className="text-[52px] text-[#1a1a2e] font-[900]">{counts.projects}+</h2><p className="font-bold opacity-60">Başarılı Proje</p></div>
-      </section>
+      {/* CORE ADVANTAGES Section */}
+      <section className="py-24 px-6 md:px-12 bg-white">
+        <div className="max-w-7xl mx-auto">
+          <div className="text-center mb-20">
+            <h2 className="text-xs font-black uppercase tracking-[0.4em] text-[#89A8B2] mb-4">Öne Çıkanlar</h2>
+            <h3 className="text-4xl md:text-5xl font-playfair font-black text-[#1E293B]">Neden Net-Work?</h3>
+          </div>
 
-      {/* NASIL ÇALIŞIR */}
-      <section className="reveal opacity-0 translate-y-12 transition-all duration-1000 ease-out py-[120px] px-[8%] text-center bg-white">
-        <h2 className="text-[40px] font-[950] mb-[60px]">4 Adımda Başla</h2>
-        <div className="flex gap-[30px] flex-wrap justify-center">
-          {[
-            { i: <ShieldCheck className="w-12 h-12 text-[#4A90A4]" />, t: "LinkedIn ile Giriş", d: "Güvenli ve hızlı profil doğrulama." },
-            { i: <FileEdit className="w-12 h-12 text-[#FF6B35]" />, t: "Profilini Oluştur", d: "Yeteneklerini ve portfolyoni sergile." },
-            { i: <Handshake className="w-12 h-12 text-[#4A90A4]" />, t: "İlan Paylaş", d: "İhtiyacın olan projeyi hemen başlat." },
-            { i: <Rocket className="w-12 h-12 text-[#FF6B35]" />, t: "Güvenle Çalış", d: "Doğrudan iletişimle projeni tamamla." }
-          ].map((step, idx) => (
-            <div key={idx} className="flex-1 min-w-[260px] p-[45px_30px] bg-[#FDFDFD] rounded-[35px] border border-[#EEEEEE] hover:-translate-y-2 transition-transform duration-300 shadow-sm hover:shadow-xl group">
-              <div className="mb-[25px] flex justify-center group-hover:scale-110 transition-transform">
-                {step.i}
-              </div>
-              <h4 className="text-[20px] font-[900] text-[#4A90A4] mb-[15px]">{idx + 1}. {step.t}</h4>
-              <p className="text-slate-500 text-[15px] leading-relaxed">{step.d}</p>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      {/* İLANLAR CAROUSEL */}
-      <section className="reveal opacity-0 translate-y-12 transition-all duration-1000 ease-out py-[100px] bg-[#F8F9FA] overflow-hidden">
-        <h2 className="text-center text-[34px] font-[900] mb-[50px] flex items-center justify-center gap-3">
-          Bu Hafta Öne Çıkanlar <Star className="w-8 h-8 text-yellow-500 fill-yellow-500" />
-        </h2>
-
-        {user ? (
-          /* LOGGED IN VIEW */
-          <div className="flex gap-[30px] w-max animate-[scroll_45s_linear_infinite] hover:pause">
-            <style jsx>{`
-                @keyframes scroll {
-                  from { transform: translateX(0); }
-                  to { transform: translateX(-50%); }
-                }
-              `}</style>
-            {(jobs.length > 0 ? [...jobs, ...jobs, ...jobs] : []).map((job, idx) => (
-              <div key={idx} className={`min-w-[380px] bg-white border border-[#E9ECEF] rounded-[35px] p-[40px] shadow-sm hover:shadow-md transition-shadow ${job.is_filled ? 'opacity-60' : ''}`}>
-                <div className="flex justify-between mb-[20px]">
-                  <span className="bg-[#E6F0F2] py-[6px] px-[15px] rounded-[12px] text-[11px] font-[800] text-[#4A90A4]">{job.category?.toUpperCase() || 'GENEL'}</span>
-                  <div className="flex gap-2">
-                    {job.is_filled ? (
-                      <span className="bg-green-100 text-green-700 py-[6px] px-[12px] rounded-[12px] text-[11px] font-[900]">İŞ VERİLDİ ✓</span>
-                    ) : (
-                      <>
-                        {job.urgency === 'urgent' && (
-                          <span className="bg-red-600 text-white py-[6px] px-[12px] rounded-[12px] text-[11px] font-[900] animate-pulse">ACİL</span>
-                        )}
-                        <span className="text-[#FF6B35] font-[900] text-[11px]">YENİ</span>
-                      </>
-                    )}
-                  </div>
+          <div className="grid md:grid-cols-3 gap-12">
+            {[
+              { icon: Zap, title: "Hızlı ve Doğrudan", desc: "Aracılarla vakit kaybetmeyin, işverenle doğrudan iletişime geçin.", color: "#89A8B2" },
+              { icon: ShieldCheck, title: "Güvenli Topluluk", desc: "Her üye ve her ilan ekibimiz tarafından incelenerek onaylanır.", color: "#F4C2A5" },
+              { icon: TrendingUp, title: "Gerçek Değer", desc: "Komisyonsuz modelimiz sayesinde emeğinizin tam karşılığını alırsınız.", color: "#B8D4C8" }
+            ].map((adv, idx) => (
+              <div key={idx} className="group p-8 rounded-2xl border border-slate-100 hover:border-[#89A8B2]/30 hover:bg-slate-50/10 transition-all duration-500">
+                <div className="w-16 h-16 mb-6 rounded-xl flex items-center justify-center bg-white shadow-sm group-hover:shadow-[#89A8B2]/20 transition-all border border-slate-50">
+                  <adv.icon className="w-7 h-7" style={{ color: adv.color }} />
                 </div>
-                <h3 className="text-[22px] font-[900] mb-[15px]">{job.title}</h3>
-                <p className="text-slate-500 text-[14px] h-[65px] overflow-hidden leading-relaxed">{job.description}</p>
-                <div className="mt-[25px] pt-[25px] border-t border-[#E9ECEF] flex justify-between items-center">
-                  <span className="font-[800] text-[14px]">{job.profiles?.full_name || 'Network Üyesi'}</span>
-                  <Link href={`/ilan/${job.id}`} className="text-[#4A90A4] no-underline font-[900] hover:underline">İncele →</Link>
-                </div>
+                <h4 className="text-xl font-bold text-slate-800 mb-4 tracking-tight">{adv.title}</h4>
+                <p className="text-slate-500 leading-relaxed text-sm">{adv.desc}</p>
               </div>
             ))}
           </div>
-        ) : (
-          /* LOCKED VIEW */
-          <div className="max-w-3xl mx-auto text-center bg-white border border-gray-200 rounded-[35px] p-12 shadow-xl relative overflow-hidden">
-            <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-orange-400 to-red-500" />
-            <div className="mb-6 flex justify-center">
-              <div className="w-20 h-20 bg-gray-50 rounded-full flex items-center justify-center">
-                <Lock className="w-10 h-10 text-gray-400" />
-              </div>
+        </div>
+      </section>
+
+      {/* FEATURED PROJECTS Section */}
+      <section className="py-24 px-6 md:px-12 bg-[#F8FAFC]">
+        <div className="max-w-7xl mx-auto">
+          <div className="flex flex-col md:flex-row md:items-end justify-between mb-16 gap-8">
+            <div className="max-w-xl">
+              <h2 className="text-xs font-black uppercase tracking-[0.4em] text-[#89A8B2] mb-4">FIRSATLAR</h2>
+              <h3 className="text-4xl md:text-5xl font-playfair font-black text-[#1E293B] mb-6">Yeni İş İlanları</h3>
+              <p className="text-slate-500 italic">Net-Work topluluğunda paylaşılan en son projeler.</p>
             </div>
-            <h3 className="text-3xl font-[900] text-gray-900 mb-4">Bu Alan Sadece Üyelere Özel!</h3>
-            <p className="text-lg text-gray-500 mb-8 max-w-lg mx-auto">
-              En yeni iş fırsatlarını ve yetenek havuzunu görüntülemek için topluluğumuza katılın veya giriş yapın.
-            </p>
-            <Link
-              href="/login"
-              className="inline-flex items-center gap-2 bg-[#1a1a2e] text-white px-8 py-4 rounded-xl font-bold text-lg hover:bg-black transition-transform hover:scale-105"
-            >
-              Giriş Yap ve İlanları Gör
+            <Link href="/ilanlar" className="inline-flex items-center gap-2 font-bold text-[#89A8B2] group border-b border-[#89A8B2]/30 pb-1 hover:border-[#89A8B2] transition-all">
+              Tümünü Gör <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
             </Link>
           </div>
-        )}
+
+          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
+            {jobs.length > 0 ? (
+              jobs.map((job) => (
+                <div key={job.id} className="bg-white p-8 rounded-xl border border-slate-100 hover:shadow-2xl hover:-translate-y-2 transition-all duration-500 group relative">
+                  <div className="flex justify-between items-start mb-6">
+                    <span className="text-[10px] font-black uppercase tracking-widest text-[#89A8B2] bg-[#89A8B2]/5 px-3 py-1 rounded">
+                      {job.category || 'Genel'}
+                    </span>
+                    {job.urgency === 'urgent' && (
+                      <span className="text-[10px] font-black uppercase tracking-widest text-red-500 flex items-center gap-1">
+                        <Zap className="w-3 h-3" /> Acil
+                      </span>
+                    )}
+                  </div>
+                  <h4 className="text-xl font-bold text-slate-800 mb-4 group-hover:text-[#89A8B2] transition-colors line-clamp-1">
+                    {job.title}
+                  </h4>
+                  <p className="text-slate-500 text-sm leading-relaxed mb-6 line-clamp-3">
+                    {job.description}
+                  </p>
+                  <div className="pt-6 border-t border-slate-50 flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 bg-slate-200 rounded-full flex items-center justify-center font-bold text-[10px] text-slate-500">
+                        {job.profiles?.full_name?.[0] || 'N'}
+                      </div>
+                      <span className="text-xs font-medium text-slate-600">{job.profiles?.full_name || 'Network Üyesi'}</span>
+                    </div>
+                    <Link href={`/ilan/${job.id}`} className="text-[#89A8B2] hover:text-[#1E293B] transition-colors">
+                      <ArrowRight className="w-5 h-5" />
+                    </Link>
+                  </div>
+                </div>
+              ))
+            ) : (
+              <div className="col-span-full py-20 text-center border-2 border-dashed border-slate-100 rounded-3xl">
+                <p className="text-slate-400 font-medium italic">Şu an gösterilecek açık ilan bulunamadı.</p>
+              </div>
+            )}
+          </div>
+        </div>
       </section>
 
-      {/* CTA */}
-      <section className="reveal opacity-0 translate-y-12 transition-all duration-1000 ease-out py-[140px] px-[8%] text-center bg-[#1a1a2e] text-white">
-        <h2 className="text-[52px] font-[950] mb-[30px] tracking-[-2px]">Ağını Bugün Büyütmeye Başla</h2>
-        <Link href="/login" className="inline-block bg-[#FF6B35] text-white border-none py-[22px] px-[55px] rounded-[50px] font-[900] text-[18px] cursor-pointer shadow-[0_15px_35px_rgba(255,107,53,0.3)] transition-transform hover:scale-105 active:scale-95 no-underline">Hemen Katıl</Link>
+      {/* SIMPLE CTA SECTION */}
+      <section className="py-24 px-6 md:px-12 bg-[#1E293B]">
+        <div className="max-w-4xl mx-auto text-center">
+          <h2 className="text-4xl md:text-5xl font-playfair font-black text-white mb-8">Topluluğumuza Katılın.</h2>
+          <p className="text-xl text-slate-400 mb-12 font-light">Ücretsiz, şeffaf ve güvenilir bir ağda çalışmanın keyfini çıkarın.</p>
+          <div className="flex flex-col sm:flex-row gap-6 justify-center">
+            <Link href="/login" className="bg-[#89A8B2] text-white px-10 py-5 rounded-lg font-bold hover:bg-[#7a97a1] transition-all shadow-xl">
+              Hemen Kayıt Ol
+            </Link>
+            <Link href="/yeni-ilan" className="bg-transparent text-white px-10 py-5 rounded-lg font-bold hover:bg-white/10 transition-all border border-white/20">
+              İlan Yayınla
+            </Link>
+          </div>
+        </div>
       </section>
 
-      {/* Newsletter Section */}
-      <NewsletterSection />
+      <Chatbot />
 
-      {/* FOOTER */}
-
+      <style jsx global>{`
+        .font-playfair { font-family: 'Playfair Display', serif; }
+        .font-sans { font-family: 'Inter', sans-serif; }
+        
+        @keyframes fade-in {
+          from { opacity: 0; transform: translateY(20px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+        .animate-fade-in {
+          animation: fade-in 1.2s ease-out forwards;
+        }
+      `}</style>
     </div>
   );
 }

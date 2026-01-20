@@ -85,7 +85,7 @@ export default function TalentPoolPage() {
                         animate={{ opacity: 1, y: 0 }}
                         className="text-5xl md:text-6xl font-black mb-6 tracking-tight"
                     >
-                        Yetenek <span className="text-[#FF6B35]">Havuzu</span>
+                        Yetenek <span className="text-[#E91E63]">Havuzu</span>
                     </motion.h1>
                     <p className="text-xl text-slate-300 max-w-2xl font-medium leading-relaxed">
                         Türkiye'nin en yetenekli bağımsız profesyonellerini keşfedin.
@@ -112,7 +112,7 @@ export default function TalentPoolPage() {
                             <button
                                 key={cat}
                                 onClick={() => setSelectedCategory(cat)}
-                                className={`px-6 py-4 rounded-2xl font-bold text-sm whitespace-nowrap transition-all ${selectedCategory === cat ? 'bg-[#FF6B35] text-white shadow-lg' : 'bg-slate-50 text-slate-500 hover:bg-slate-100'}`}
+                                className={`px-6 py-4 rounded-2xl font-bold text-sm whitespace-nowrap transition-all ${selectedCategory === cat ? 'bg-[#E91E63] text-white shadow-lg' : 'bg-slate-50 text-slate-500 hover:bg-slate-100'}`}
                             >
                                 {cat}
                             </button>
@@ -161,7 +161,7 @@ export default function TalentPoolPage() {
                                                 />
                                             </div>
 
-                                            <h3 className="text-2xl font-black text-slate-900 mb-2 group-hover:text-[#FF6B35] transition-colors">
+                                            <h3 className="text-2xl font-black text-slate-900 mb-2 group-hover:text-[#E91E63] transition-colors">
                                                 {talent.full_name}
                                             </h3>
                                             <p className="text-slate-500 font-bold text-sm mb-6 flex items-center gap-2">
@@ -188,7 +188,7 @@ export default function TalentPoolPage() {
                                                 </div>
                                                 <Link
                                                     href={`/profil/freelancer/${talent.id}`}
-                                                    className="flex items-center gap-2 px-6 py-3 bg-[#1a1a2e] text-white rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-[#FF6B35] shadow-lg shadow-slate-200 transition-all active:scale-95"
+                                                    className="flex items-center gap-2 px-6 py-3 bg-[#1a1a2e] text-white rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-[#E91E63] shadow-lg shadow-slate-200 transition-all active:scale-95"
                                                 >
                                                     İncele <ChevronRight className="w-4 h-4" />
                                                 </Link>

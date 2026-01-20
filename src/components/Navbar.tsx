@@ -56,26 +56,26 @@ export default function Navbar({ transparent = false }: NavbarProps) {
 
     return (
         <>
-            <nav className={`fixed top-0 w-full flex justify-between items-center px-6 md:px-[8%] transition-all duration-300 z-50 ${isSolid ? 'h-[75px] bg-white/95 backdrop-blur-md border-b border-[#E9ECEF] shadow-sm' : 'h-[95px] bg-white/10 backdrop-blur-md border-transparent'}`}>
-                <Link href="/" className="text-[24px] md:text-[26px] font-[950] tracking-[-1.5px] text-[#1a1a2e] no-underline relative z-50">
-                    Net-Work<span className="text-[#FF6B35]">.</span>
+            <nav className={`fixed top-0 w-full flex justify-between items-center px-6 md:px-[8%] transition-all duration-300 z-50 ${isSolid ? 'h-[75px] bg-white border-b border-slate-100 shadow-sm' : 'h-[95px] bg-white/50 backdrop-blur-md border-transparent'}`}>
+                <Link href="/" className="text-[24px] font-[900] tracking-tighter text-[#1e293b] no-underline relative z-50">
+                    Net-Work<span className="text-[#89A8B2]">.</span>
                 </Link>
 
                 {/* Desktop Menu */}
-                <div className="hidden md:flex gap-[35px] items-center">
-                    <Link href="/yeni-ilan" className="bg-[#FF6B35] text-white border-none py-2.5 px-6 rounded-2xl font-[800] hover:scale-105 transition-transform no-underline text-sm shadow-[0_10px_20px_rgba(255,107,53,0.3)]">İlan Ver</Link>
-                    <Link href="/ilanlar" className={`no-underline font-bold text-sm ${pathname === '/ilanlar' ? 'text-[#FF6B35]' : 'text-[#1a1a2e]'}`}>İş İlanları</Link>
-                    <Link href="/yetenekler" className={`no-underline font-bold text-sm ${pathname === '/yetenekler' ? 'text-[#FF6B35]' : 'text-[#1a1a2e]'}`}>Yetenekler</Link>
+                <div className="hidden md:flex items-center gap-10">
+                    <Link href="/ilanlar" className={`no-underline font-semibold text-sm tracking-tight ${pathname === '/ilanlar' ? 'text-[#89A8B2]' : 'text-[#334155] hover:text-[#89A8B2]'}`}>İş İlanları</Link>
+                    <Link href="/yetenekler" className={`no-underline font-semibold text-sm tracking-tight ${pathname === '/yetenekler' ? 'text-[#89A8B2]' : 'text-[#334155] hover:text-[#89A8B2]'}`}>Yetenekler</Link>
                     {user ? (
                         <>
-                            <Link href="/basvurular" className={`font-bold text-sm no-underline hover:text-[#FF6B35] transition-colors ${pathname === '/basvurular' ? 'text-[#FF6B35]' : 'text-[#1a1a2e]'}`}>Başvurular</Link>
-                            <Link href="/mesajlar" className={`font-bold text-sm no-underline hover:text-[#FF6B35] transition-colors ${pathname === '/mesajlar' ? 'text-[#FF6B35]' : 'text-[#1a1a2e]'}`}>Mesajlar</Link>
+                            <Link href="/basvurular" className={`font-semibold text-sm no-underline hover:text-[#89A8B2] transition-colors ${pathname === '/basvurular' ? 'text-[#89A8B2]' : 'text-[#334155]'}`}>Başvurular</Link>
+                            <Link href="/mesajlar" className={`font-semibold text-sm no-underline hover:text-[#89A8B2] transition-colors ${pathname === '/mesajlar' ? 'text-[#89A8B2]' : 'text-[#334155]'}`}>Mesajlar</Link>
                             <NotificationBell />
-                            <Link href="/profil" className={`font-[800] no-underline ${pathname?.startsWith('/profil') ? 'text-[#FF6B35]' : 'text-[#4A90A4]'}`}>Profilim</Link>
+                            <Link href="/profil" className={`font-bold text-sm no-underline ${pathname?.startsWith('/profil') ? 'text-[#89A8B2]' : 'text-[#1e293b] hover:text-[#89A8B2]'}`}>Profilim</Link>
                         </>
                     ) : (
-                        <Link href="/login" className="bg-[#1a1a2e] text-white border-none py-3 px-6 rounded-2xl font-[800] cursor-pointer hover:bg-black transition-colors no-underline">Giriş Yap</Link>
+                        <Link href="/login" className="bg-[#1e293b] text-white border-none py-2.5 px-6 rounded-lg font-bold cursor-pointer hover:bg-black transition-colors no-underline text-sm shadow-lg shadow-slate-200">Giriş Yap</Link>
                     )}
+                    <Link href="/yeni-ilan" className="bg-[#89A8B2] text-white border-none py-2.5 px-6 rounded-lg font-bold hover:scale-105 transition-transform no-underline text-sm shadow-lg shadow-[#89A8B2]/20">İlan Ver</Link>
                 </div>
 
                 {/* Mobile Menu Button */}
@@ -98,7 +98,7 @@ export default function Navbar({ transparent = false }: NavbarProps) {
                         className="fixed inset-0 z-40 bg-white pt-24 px-6 md:hidden flex flex-col gap-6 overflow-y-auto"
                     >
                         <div className="flex flex-col gap-4 text-center">
-                            <Link href="/yeni-ilan" className="bg-[#FF6B35] text-white py-3 px-6 rounded-xl font-[800] text-lg hover:scale-105 transition-transform mx-4 shadow-lg">İlan Ver</Link>
+                            <Link href="/yeni-ilan" className="bg-[#89A8B2] text-white py-3 px-6 rounded-xl font-[800] text-lg hover:scale-105 transition-transform mx-4 shadow-lg">İlan Ver</Link>
                             <Link href="/ilanlar" className="text-xl font-bold py-3 border-b border-gray-100">İş İlanları</Link>
                             <Link href="/yetenekler" className="text-xl font-bold py-3 border-b border-gray-100">Yetenekler</Link>
 

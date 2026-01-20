@@ -215,7 +215,7 @@ export default function ProfileSetup() {
             <div className="max-w-[1000px] mx-auto px-5">
                 {/* Logo/Header */}
                 <header className="text-center mb-10">
-                    <h1 className="text-4xl font-[900] tracking-tighter text-[#1a1a2e] mb-2">Net-Work<span className="text-[#FF6B35]">.</span></h1>
+                    <h1 className="text-4xl font-[900] tracking-tighter text-[#1a1a2e] mb-2">Net-Work<span className="text-[#E91E63]">.</span></h1>
                     <p className="text-[#7f8c8d]">Profesyonel profilinizi oluşturun</p>
                 </header>
 

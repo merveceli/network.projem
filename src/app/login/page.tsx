@@ -29,10 +29,10 @@ export default function LoginPage() {
             <div className="hidden lg:flex flex-1 flex-col justify-center items-center bg-[#1a1a2e] text-white p-12 relative overflow-hidden">
                 <div className="absolute inset-0 opacity-20 bg-[url('https://images.pexels.com/photos/3182812/pexels-photo-3182812.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=2')] bg-cover bg-center mix-blend-overlay"></div>
                 <div className="relative z-10 max-w-[500px] text-center">
-                    <div className="w-20 h-20 bg-[#FF6B35] rounded-3xl rotate-12 flex items-center justify-center mb-8 mx-auto shadow-2xl">
+                    <div className="w-20 h-20 bg-[#E91E63] rounded-3xl rotate-12 flex items-center justify-center mb-8 mx-auto shadow-2xl">
                         <span className="text-4xl font-black -rotate-12">N</span>
                     </div>
-                    <h1 className="text-5xl font-black mb-6 tracking-tight">Kariyerine <span className="text-[#FF6B35]">Yön Ver</span></h1>
+                    <h1 className="text-5xl font-black mb-6 tracking-tight">Kariyerine <span className="text-[#E91E63]">Yön Ver</span></h1>
                     <p className="text-xl text-gray-300 leading-relaxed font-light mb-8">
                         Türkiye'nin en güvenilir profesyonel ağına katılın. Sahte ilanlardan uzak, doğrulanmış profillerle iş birliği yapın.
                     </p>

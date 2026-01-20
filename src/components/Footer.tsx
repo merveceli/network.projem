@@ -7,14 +7,14 @@ export default function Footer() {
         <footer className="pt-[100px] px-[8%] pb-[40px] bg-[#080810] text-white">
             <div className="grid grid-cols-[repeat(auto-fit,minmax(250px,1fr))] gap-[60px] border-b border-white/10 pb-[60px] mb-[40px]">
                 <div>
-                    <h3 className="text-[26px] font-[950] mb-[20px]">Net-Work<span className="text-[#FF6B35]">.</span></h3>
+                    <h3 className="text-[26px] font-[950] mb-[20px]">Net-Work<span className="text-[#89A8B2]">.</span></h3>
                     <p className="opacity-50 leading-[1.8] text-[14px]">Net-Work, kar amacı gütmeyen, ücretsiz ve doğrulanmış bir freelancer ağıdır.Amacımız yetenekleri ve işverenleri aracısız buluşturmaktır.</p>
                 </div>
                 <div>
                     <h4 className="mb-[25px] font-[900]">Hızlı Menü</h4>
                     <div className="flex flex-col gap-[15px] opacity-60 text-[14px]">
-                        <Link href="/ilanlar" className="cursor-pointer hover:text-[#FF6B35] transition-colors">İş İlanları</Link>
-                        <Link href="/yetenekler" className="cursor-pointer hover:text-[#FF6B35] transition-colors">Yetenekler</Link>
+                        <Link href="/ilanlar" className="cursor-pointer hover:text-[#89A8B2] transition-colors">İş İlanları</Link>
+                        <Link href="/yetenekler" className="cursor-pointer hover:text-[#89A8B2] transition-colors">Yetenekler</Link>
                     </div>
                 </div>
                 <div>
@@ -31,7 +31,7 @@ export default function Footer() {
                 <div>
                     <h4 className="mb-[25px] font-[900]">Geliştirici</h4>
                     <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 bg-[#FF6B35] rounded-full flex items-center justify-center font-bold">M</div>
+                        <div className="w-10 h-10 bg-[#89A8B2] rounded-full flex items-center justify-center font-bold">M</div>
                         <div>
                             <p className="text-[14px] font-bold">Merve Çelik</p>
                             <p className="text-[12px] opacity-50">Full Stack Developer</p>
