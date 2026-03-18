@@ -1,7 +1,6 @@
 "use client";
 import { useState, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
-import { supabase } from "@/lib/supabase";
 import Link from "next/link";
 import { Search, Briefcase, Filter as FilterIcon, ChevronDown, Clock, Banknote, ArrowLeft } from "lucide-react";
 import SmartJobMatcher from "@/components/SmartJobMatcher";
@@ -31,7 +30,6 @@ interface Job {
 }
 
 import LoadingFacts from "@/components/LoadingFacts";
-import { User } from "@supabase/supabase-js"; // Add import
 
 function JobListingContent() {
     const searchParams = useSearchParams();
@@ -39,77 +37,25 @@ function JobListingContent() {
 
     const [jobs, setJobs] = useState<Job[]>([]);
     const [loading, setLoading] = useState(true);
-    const [currentUser, setCurrentUser] = useState<User | null>(null);
 
-    // Filtre State'leri
     const [searchTerm, setSearchTerm] = useState(queryTerm);
     const [selectedCategory, setSelectedCategory] = useState("Tümü");
     const [selectedJobType, setSelectedJobType] = useState("Tümü");
 
     useEffect(() => {
-        // Get user for application check
-        supabase.auth.getUser().then(({ data: { user } }) => setCurrentUser(user));
-    }, []);
-
-    useEffect(() => {
         fetchJobs();
-    }, [searchTerm, selectedCategory, selectedJobType, currentUser]);
+    }, [searchTerm, selectedCategory, selectedJobType]);
 
     const fetchJobs = async () => {
         setLoading(true);
         try {
-            let query = supabase
-                .from("jobs")
-                .select(`
-                  *,
-                  profiles:creator_id(full_name, avatar_url),
-                  applications:applications(count),
-                  my_application:applications!inner(id)
-                `, { count: 'exact', head: false })
-            // Note: The specific filtering for "my_application" needs a separate approach or clever join
-            // Supabase generic query for "all jobs" + "did I apply?" is tricky in one go without filtering OUT jobs I didn't apply to.
-            // So we will use a simpler approach: Fetch jobs, then fetch my applications IDs.
-
-            // REVISED QUERY: Just fetch jobs and total application count
-            let jobQuery = supabase
-                .from("jobs")
-                .select(`
-                    *,
-                    profiles:creator_id(full_name, avatar_url),
-                    applications(count)
-                `)
-                .eq("status", "approved")
-                .order("created_at", { ascending: false });
-
-            if (searchTerm) jobQuery = jobQuery.ilike("title", `%${searchTerm}%`);
-            if (selectedCategory !== "Tümü") jobQuery = jobQuery.eq("category", selectedCategory);
-            if (selectedJobType !== "Tümü") jobQuery = jobQuery.eq("job_type", selectedJobType);
-
-            const { data: jobsData, error } = await jobQuery;
-            if (error) throw error;
-
-            // Process Jobs
-            let processedJobs: Job[] = (jobsData as any[]).map(j => ({
-                ...j,
-                application_count: j.applications?.[0]?.count || 0,
-                has_applied: false // default
-            }));
-
-            // Check if user applied
-            if (currentUser) {
-                const { data: myApps } = await supabase
-                    .from("applications")
-                    .select("job_id")
-                    .eq("applicant_id", currentUser.id);
-
-                const myAppliedJobIds = new Set(myApps?.map(a => a.job_id));
-                processedJobs = processedJobs.map(j => ({
-                    ...j,
-                    has_applied: myAppliedJobIds.has(j.id)
-                }));
-            }
-
-            setJobs(processedJobs);
+            const { fetchJobsList } = await import('./actions');
+            const processedJobs = await fetchJobsList({
+                searchTerm,
+                selectedCategory,
+                selectedJobType
+            });
+            setJobs(processedJobs as Job[]);
         } catch (error) {
             console.error("İlanlar çekilirken hata:", error);
         } finally {

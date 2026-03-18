@@ -1,9 +1,8 @@
 "use client";
 import { useEffect, useState, useRef } from "react";
-import { createClient } from "@/utils/supabase/client";
-import { User } from "@supabase/supabase-js";
 import { ArrowLeft, Send, MoreVertical, Ban, ShieldAlert, X, MapPin, User as UserIcon } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import { getChatDetails, sendMessage, toggleBlockStatus } from "../actions";
 
 interface Message {
     id: string;
@@ -23,8 +22,7 @@ interface Profile {
     role?: string;
 }
 
-export default function ChatWindow({ currentUser, conversationId, onBack }: { currentUser: User, conversationId: string, onBack: () => void }) {
-    const supabase = createClient();
+export default function ChatWindow({ currentUser, conversationId, onBack }: { currentUser: any, conversationId: string, onBack: () => void }) {
     const [messages, setMessages] = useState<Message[]>([]);
     const [otherUser, setOtherUser] = useState<Profile | null>(null);
     const [newMessage, setNewMessage] = useState("");
@@ -32,11 +30,10 @@ export default function ChatWindow({ currentUser, conversationId, onBack }: { cu
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const [sending, setSending] = useState(false);
 
-    // Blocking State
-    const [isBlocked, setIsBlocked] = useState(false); // Am I blocked?
-    const [hasBlocked, setHasBlocked] = useState(false); // Have I blocked them?
+    const [isBlocked, setIsBlocked] = useState(false);
+    const [hasBlocked, setHasBlocked] = useState(false);
     const [showMenu, setShowMenu] = useState(false);
-    const [showProfileModal, setShowProfileModal] = useState(false); // For Mini Bio
+    const [showProfileModal, setShowProfileModal] = useState(false);
     const menuRef = useRef<HTMLDivElement>(null);
 
     const scrollToBottom = () => {
@@ -48,7 +45,6 @@ export default function ChatWindow({ currentUser, conversationId, onBack }: { cu
         }
     };
 
-    // Close menu when clicking outside
     useEffect(() => {
         const handleClickOutside = (event: MouseEvent) => {
             if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
@@ -67,98 +63,42 @@ export default function ChatWindow({ currentUser, conversationId, onBack }: { cu
 
     useEffect(() => {
         setLoading(true);
-        setOtherUser(null); // Reset on conversation change
+        setOtherUser(null);
         setHasBlocked(false);
         setIsBlocked(false);
 
-        const fetchChatDetails = async () => {
-            try {
-                // 1. Get Conversation Details
-                const { data: conv, error: convError } = await supabase
-                    .from('conversations')
-                    .select('*')
-                    .eq('id', conversationId)
-                    .single();
-
-                if (convError || !conv) {
-                    console.error('Failed to fetch conversation:', convError);
-                    setLoading(false);
-                    return;
-                }
-
-                const otherUserId = conv.participant_1 === currentUser.id ? conv.participant_2 : conv.participant_1;
-
-                // 2. Get Other User Profile with MORE details
-                // Replacing 'city' with 'location' as verified in schema
-                const { data: profile, error: profileError } = await supabase
-                    .from('profiles')
-                    .select('id, full_name, title, avatar_url, bio, location, role')
-                    .eq('id', otherUserId)
-                    .maybeSingle();
-
-                if (profileError) {
-                    console.error('Profile fetch error:', JSON.stringify(profileError, null, 2));
-                }
-
-                if (profile && !profileError) {
-                    setOtherUser(profile);
-                } else {
-                    console.warn('⚠️ Profile not found, using fallback for user:', otherUserId);
-                    setOtherUser({
-                        id: otherUserId,
-                        full_name: "Bilinmeyen Kullanıcı",
-                        title: "Profil Bulunamadı"
-                    });
-                }
-
-                // 3. Check Block Status
-                const { data: blocks } = await supabase.from('user_blocks')
-                    .select('*')
-                    .or(`and(blocker_id.eq.${currentUser.id},blocked_id.eq.${otherUserId}),and(blocker_id.eq.${otherUserId},blocked_id.eq.${currentUser.id})`);
-
-                if (blocks) {
-                    blocks.forEach(block => {
-                        if (block.blocker_id === currentUser.id) setHasBlocked(true);
-                        if (block.blocker_id === otherUserId) setIsBlocked(true);
-                    });
-                }
-
-                // 4. Get Messages
-                const { data: msgs } = await supabase
-                    .from('messages')
-                    .select('*')
-                    .eq('conversation_id', conversationId)
-                    .order('created_at', { ascending: true });
-
-                if (msgs) setMessages(msgs);
-
-            } catch (error) {
-                console.error('❌ Critical error in fetchChatDetails:', error);
-            } finally {
-                setLoading(false);
-                setTimeout(scrollToBottom, 500);
+        const fetchDetails = async () => {
+            const res = await getChatDetails(conversationId);
+            if (res.success && res.data) {
+                setMessages((res.data.messages || []) as Message[]);
+                setOtherUser(res.data.profile as Profile);
+                setIsBlocked(res.data.isBlocked);
+                setHasBlocked(res.data.hasBlocked);
+            } else {
+                console.error("Failed to load chat details:", res.error);
             }
+            setLoading(false);
+            setTimeout(scrollToBottom, 500);
         };
 
-        fetchChatDetails();
+        fetchDetails();
 
-        // 5. Realtime Subscription
-        const channel = supabase
-            .channel(`chat:${conversationId}`)
-            .on('postgres_changes', {
-                event: 'INSERT',
-                schema: 'public',
-                table: 'messages',
-                filter: `conversation_id=eq.${conversationId}`
-            }, (payload) => {
-                const newMsg = payload.new as Message;
-                setMessages(prev => [...prev, newMsg]);
-            })
-            .subscribe();
+        // HTTP Polling for new messages
+        const intervalId = setInterval(async () => {
+            const res = await getChatDetails(conversationId);
+            if (res.success && res.data) {
+                // If the message count increased, update and scroll
+                setMessages(prev => {
+                    if (prev.length !== res.data.messages.length) {
+                        setTimeout(scrollToBottom, 100);
+                        return res.data.messages as Message[];
+                    }
+                    return prev;
+                });
+            }
+        }, 3000);
 
-        return () => {
-            supabase.removeChannel(channel);
-        };
+        return () => clearInterval(intervalId);
     }, [conversationId, currentUser.id]);
 
     const handleSend = async (e?: React.FormEvent) => {
@@ -166,64 +106,47 @@ export default function ChatWindow({ currentUser, conversationId, onBack }: { cu
         if (!newMessage.trim() || sending || isBlocked || hasBlocked) return;
 
         setSending(true);
-        try {
-            const { error } = await supabase.from('messages').insert({
-                conversation_id: conversationId,
-                sender_id: currentUser.id,
-                content: newMessage.trim()
-            });
+        const res = await sendMessage(conversationId, newMessage.trim());
 
-            if (error) throw error;
+        if (res.success && res.data) {
+            setMessages(prev => [...prev, res.data as Message]);
             setNewMessage("");
             scrollToBottom();
-        } catch (error) {
-            console.error("Error sending message:", error);
+        } else {
+            console.error("Error sending message:", res.error);
             alert("Mesaj gönderilemedi.");
-        } finally {
-            setSending(false);
         }
+        setSending(false);
     };
 
     const toggleBlock = async () => {
         if (!otherUser) return;
 
-        try {
+        const res = await toggleBlockStatus(otherUser.id, hasBlocked);
+        if (res.success) {
             if (hasBlocked) {
-                // Unblock
-                const { error } = await supabase.from('user_blocks')
-                    .delete()
-                    .match({ blocker_id: currentUser.id, blocked_id: otherUser.id });
-                if (error) throw error;
                 setHasBlocked(false);
                 alert("Kullanıcı engeli kaldırıldı.");
             } else {
-                // Block
-                const { error } = await supabase.from('user_blocks')
-                    .insert({ blocker_id: currentUser.id, blocked_id: otherUser.id });
-                if (error) throw error;
                 setHasBlocked(true);
                 alert("Kullanıcı engellendi. Artık size mesaj atamaz.");
             }
-            setShowMenu(false);
-        } catch (error) {
-            console.error("Block error:", error);
+        } else {
             alert("İşlem başarısız oldu.");
         }
+        setShowMenu(false);
     };
 
     if (loading) return <div className="flex-1 flex items-center justify-center bg-gray-50 text-gray-400">Yükleniyor...</div>;
 
     return (
         <div className="flex-1 flex flex-col h-full bg-[#f8f9fa] relative overflow-hidden">
-
-            {/* Net-Work. Background Watermark */}
             <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-0 opacity-[0.03] overflow-hidden select-none">
                 <div className="transform -rotate-12 text-[120px] md:text-[200px] font-black text-gray-900 whitespace-nowrap tracking-tighter">
                     Net-Work.
                 </div>
             </div>
 
-            {/* Profile Modal */}
             <AnimatePresence>
                 {showProfileModal && otherUser && (
                     <div className="absolute inset-0 z-50 flex items-center justify-center p-4 bg-gray-900/20 backdrop-blur-[2px]">
@@ -244,8 +167,12 @@ export default function ChatWindow({ currentUser, conversationId, onBack }: { cu
                             </div>
                             <div className="px-6 pb-6 -mt-12 text-center relative">
                                 <div className="w-24 h-24 mx-auto bg-white p-1.5 rounded-full shadow-lg mb-4">
-                                    <div className="w-full h-full bg-gradient-to-br from-blue-100 to-indigo-100 rounded-full flex items-center justify-center text-3xl font-bold text-indigo-600">
-                                        {otherUser.full_name?.charAt(0) || '?'}
+                                    <div className="w-full h-full bg-gradient-to-br from-blue-100 to-indigo-100 rounded-full flex items-center justify-center text-3xl font-bold text-indigo-600 overflow-hidden">
+                                        {otherUser.avatar_url ? (
+                                            <img src={otherUser.avatar_url} className="w-full h-full object-cover" />
+                                        ) : (
+                                            otherUser.full_name?.charAt(0) || '?'
+                                        )}
                                     </div>
                                 </div>
                                 <h2 className="text-2xl font-bold text-gray-900 mb-1">{otherUser.full_name}</h2>
@@ -286,15 +213,18 @@ export default function ChatWindow({ currentUser, conversationId, onBack }: { cu
                 )}
             </AnimatePresence>
 
-            {/* Header */}
             <div className="h-20 bg-white border-b border-gray-200/60 flex items-center px-6 justify-between shadow-sm z-10 backdrop-blur-xl bg-white/90 sticky top-0">
                 <div className="flex items-center gap-4 cursor-pointer group" onClick={() => setShowProfileModal(true)}>
                     <button onClick={(e) => { e.stopPropagation(); onBack(); }} className="md:hidden p-2 -ml-2 text-gray-500 hover:bg-gray-100 rounded-full transition-colors">
                         <ArrowLeft className="w-5 h-5" />
                     </button>
                     <div className="relative">
-                        <div className="w-11 h-11 bg-gradient-to-tr from-blue-600 to-indigo-600 rounded-full flex items-center justify-center text-white font-bold text-lg shadow-md ring-2 ring-white group-hover:scale-105 transition-transform duration-300">
-                            {otherUser?.full_name?.charAt(0) || '?'}
+                        <div className="w-11 h-11 bg-gradient-to-tr from-blue-600 to-indigo-600 rounded-full flex items-center justify-center text-white font-bold text-lg shadow-md ring-2 ring-white group-hover:scale-105 transition-transform duration-300 overflow-hidden">
+                            {otherUser?.avatar_url ? (
+                                <img src={otherUser.avatar_url} className="w-full h-full object-cover" />
+                            ) : (
+                                otherUser?.full_name?.charAt(0) || '?'
+                            )}
                         </div>
                         <div className="absolute bottom-0.5 right-0.5 w-3 h-3 bg-emerald-500 ring-2 ring-white rounded-full"></div>
                     </div>
@@ -353,7 +283,6 @@ export default function ChatWindow({ currentUser, conversationId, onBack }: { cu
                 </div>
             </div>
 
-            {/* SECURITY WARNING */}
             <div className="bg-orange-50 px-6 py-2 border-b border-orange-100 flex items-start gap-3 z-10 shrink-0">
                 <ShieldAlert className="w-5 h-5 text-orange-600 mt-0.5 shrink-0" />
                 <p className="text-xs text-orange-800 font-medium leading-relaxed">
@@ -362,9 +291,7 @@ export default function ChatWindow({ currentUser, conversationId, onBack }: { cu
                 </p>
             </div>
 
-            {/* Messages Area */}
             <div className="flex-1 overflow-y-auto p-6 space-y-6 z-0 scroll-smooth">
-                {/* Date Divider */}
                 <div className="flex justify-center my-6 opacity-80">
                     <span className="bg-gray-100/80 backdrop-blur-sm text-gray-500 text-[10px] py-1 px-3 rounded-full font-bold uppercase tracking-wider shadow-sm border border-gray-200/50">
                         {new Date().toLocaleDateString('tr-TR', { day: 'numeric', month: 'long', year: 'numeric' })}
@@ -394,7 +321,6 @@ export default function ChatWindow({ currentUser, conversationId, onBack }: { cu
                 <div ref={messagesEndRef} className="pt-2" />
             </div>
 
-            {/* Input Area */}
             <div className="bg-white p-4 border-t border-gray-200 z-10">
                 {(isBlocked || hasBlocked) ? (
                     <div className="flex flex-col items-center justify-center p-6 bg-gray-50 rounded-2xl border border-gray-200 text-center mx-auto max-w-lg">

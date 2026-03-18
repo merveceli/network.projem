@@ -1,14 +1,17 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { createClient } from '@/utils/supabase/client';
-import { User } from '@supabase/supabase-js';
 import Navbar from '@/components/Navbar';
 import { useRouter } from 'next/navigation';
-import { LogOut, Building2, Briefcase, Star, Settings, LayoutGrid, Users, MapPin, Globe, Mail, ShieldCheck, ShieldAlert, AlertTriangle, Clock } from 'lucide-react';
+import { useSession, signOut } from 'next-auth/react';
+import { 
+    LogOut, Building2, Briefcase, Star, Settings, LayoutGrid, 
+    Users, MapPin, Globe, Mail, ShieldCheck, ShieldAlert, 
+    AlertTriangle, Clock, Save, Edit2, Trash2 
+} from 'lucide-react';
 import Image from 'next/image';
 import { useToast } from "@/contexts/ToastContext";
-
+import { getProfile, updateProfileGeneric, deleteProfileSelf } from '../actions';
 
 // --- TİP TANIMLAMALARI ---
 interface CompanyData {
@@ -71,9 +74,8 @@ const getInitialCompany = (): CompanyData => {
 };
 
 export default function EmployerProfile() {
-    const supabase = createClient();
+    const { data: session, status } = useSession();
     const router = useRouter();
-    const [user, setUser] = useState<User | null>(null);
     const [company, setCompany] = useState<CompanyData>(getInitialCompany);
     const [activeTab, setActiveTab] = useState<'company' | 'jobs' | 'reviews'>('company');
     const [isEditing, setIsEditing] = useState(false);
@@ -81,8 +83,7 @@ export default function EmployerProfile() {
     const [loading, setLoading] = useState(true);
     const { success, error: toastError } = useToast();
 
-    // Mock Data for Jobs (since we might not have a jobs table structure ready yet or it's complex)
-    // In a real app, these would come from a 'jobs' table related to the company
+    // Mock Data for Jobs
     const [activeJobs, setActiveJobs] = useState<Job[]>([
         { id: 1, title: 'Senior React Developer', type: 'Full-time', salary: '$5k-$7k', applicants: 24, status: 'active' },
         { id: 2, title: 'UI/UX Designer', type: 'Part-time', salary: '$3k-$4k', applicants: 18, status: 'active' },
@@ -95,44 +96,34 @@ export default function EmployerProfile() {
         { name: 'Ayşe Yılmaz', role: 'Backend Developer • 1 yıl', rating: 4, comment: 'Teknik olarak çok güçlü bir ekip. Sürekli yeni teknolojiler öğreniyoruz.', date: '1 ay önce' },
     ];
 
-    // Supabase'den veri çek
     useEffect(() => {
+        if (status === 'loading') return;
+        if (status === 'unauthenticated' || !session?.user) {
+            router.push('/login');
+            return;
+        }
+
         const fetchData = async () => {
             try {
-                const { data: { user } } = await supabase.auth.getUser();
-                setUser(user);
-
-                if (user) {
-                    const { data, error } = await supabase
-                        .from('profiles')
-                        .select('*, profile_comments(*, author_profile:author_id(full_name))')
-                        .eq('id', user.id)
-                        .single();
-
-                    if (data) {
-                        setCompany(prev => ({
-                            ...prev,
-                            company_name: data.full_name || prev.company_name,
-                            industry: data.title || prev.industry,
-                            location: data.location || prev.location,
-                            description: data.bio || prev.description,
-                            email: user.email || prev.email,
-                            phone: data.phone || prev.phone,
-                            is_secure: data.is_secure,
-                            is_suspicious: data.is_suspicious,
-                            fast_responder: data.fast_responder,
-                            founded_year: data.metadata?.founded_year || prev.founded_year,
-                            website: data.metadata?.website || prev.website,
-                            employee_count: data.metadata?.employee_count || prev.employee_count,
-                            benefits: data.metadata?.benefits || prev.benefits
-                        }));
-
-                        if (data.profile_comments) {
-                            // ... (existing comments code)
-                        }
-
-                        setCompany(prev => ({ ...prev, avatar_url: data.avatar_url }));
-                    }
+                const data = await getProfile();
+                if (data) {
+                    setCompany(prev => ({
+                        ...prev,
+                        company_name: data.full_name || prev.company_name,
+                        industry: data.title || prev.industry,
+                        location: data.location || prev.location,
+                        description: data.bio || prev.description,
+                        email: session.user?.email || prev.email,
+                        phone: data.phone || prev.phone,
+                        is_secure: data.is_secure,
+                        is_suspicious: data.is_suspicious,
+                        fast_responder: data.fast_responder,
+                        founded_year: data.metadata?.founded_year || prev.founded_year,
+                        website: data.metadata?.website || prev.website,
+                        employee_count: data.metadata?.employee_count || prev.employee_count,
+                        benefits: data.metadata?.benefits || prev.benefits,
+                        avatar_url: data.avatar_url
+                    }));
                 }
             } catch (error) {
                 console.error('Veri çekme hatası:', error);
@@ -142,95 +133,67 @@ export default function EmployerProfile() {
         };
 
         fetchData();
-    }, [supabase]);
+    }, [status, session, router]);
 
     const handleLogout = async () => {
         if (confirm("Çıkış yapmak istediğinize emin misiniz?")) {
-            await supabase.auth.signOut();
-            router.push('/');
+            await signOut({ callbackUrl: '/' });
         }
     };
 
-    // Profili kaydetme
     const handleSaveCompany = async () => {
-        setIsEditing(false);
-        if (!user) return;
-
         try {
-            // Need to update profile
-            // We'll store extra fields in a 'metadata' jsonb column if it exists, or just accept that they might not persist if columns don't exist yet.
-            // For valid columns:
-            const updates = {
-                id: user.id,
+            await updateProfileGeneric({
                 full_name: company.company_name,
                 title: company.industry,
                 location: company.location,
                 bio: company.description,
                 phone: company.phone,
-                // Assuming we can save other props in a metadata column, or just ignore if not present for now.
-                // If the user hasn't added these columns to DB, this needs to be handled.
-                // I will add a 'metadata' field to the upsert helper if I could, but standard Supabase typescript types might block.
-                // Casting to any to allow metadata if the table supports it (common pattern)
+                avatar_url: company.avatar_url,
                 metadata: {
                     founded_year: company.founded_year,
                     website: company.website,
                     employee_count: company.employee_count,
                     benefits: company.benefits
                 }
-            };
-
-            const { error } = await supabase
-                .from('profiles')
-                .upsert(updates);
-
-            if (error) throw error;
+            });
+            setIsEditing(false);
             success('Şirket bilgileri güncellendi!');
-        } catch (error) {
+        } catch (error: any) {
             console.error('Kaydetme hatası:', error);
-            toastError('Kaydetme sırasında bir hata oluştu. (Not: Veritabanı şeması güncel olmayabilir)');
+            toastError('Kaydetme sırasında bir hata oluştu');
         }
     };
 
     const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
-        if (!file || !user) return;
+        if (!file) return;
 
-        // Basit yükleme UI state'i olmadığı için alert ile bildirelim veya yeni bir state ekleyebiliriz.
-        // Şimdilik direkt yükleyip sonucu gösterelim.
         try {
-            const fileExt = file.name.split('.').pop();
-            const fileName = `${user.id}/logo_${Date.now()}.${fileExt}`;
+            const formDataArg = new FormData();
+            formDataArg.append('file', file);
+            formDataArg.append('folder', 'avatars');
 
-            const { error: uploadError } = await supabase.storage
-                .from('avatars')
-                .upload(fileName, file);
+            const res = await fetch('/api/upload', {
+                method: 'POST',
+                body: formDataArg
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error);
 
-            if (uploadError) throw uploadError;
-
-            const { data: { publicUrl } } = supabase.storage
-                .from('avatars')
-                .getPublicUrl(fileName);
-
-            // State güncelle
-            setCompany(prev => ({ ...prev, avatar_url: publicUrl }));
-
-            // DB güncelle (Logo hemen kaydolmalı)
-            await supabase.from('profiles').update({ avatar_url: publicUrl }).eq('id', user.id);
-
-            success("Şirket logosu başarıyla güncellendi!");
+            setCompany(prev => ({ ...prev, avatar_url: data.url }));
+            success("Şirket logosu yüklendi. Kaydetmeyi unutmayın!");
         } catch (error: any) {
             toastError("Logo yükleme hatası: " + error.message);
         }
     };
 
     const handleDeleteProfile = async () => {
-        if (!user) return;
-        const confirmDelete = window.confirm("Şirket Profilini SİLMEK ve SIFIRLAMAK istediğinize emin misiniz? Bu işlem geri alınamaz.");
+        const confirmDelete = window.confirm("Şirket Profilini SİLMEK istediğinize emin misiniz? Bu işlem geri alınamaz.");
         if (!confirmDelete) return;
 
         try {
-            const { error } = await supabase.from('profiles').delete().eq('id', user.id);
-            if (error) throw error;
+            await deleteProfileSelf();
             router.push('/profil');
         } catch (error: any) {
             alert("Silme hatası: " + error.message);
@@ -254,19 +217,7 @@ export default function EmployerProfile() {
         }));
     };
 
-    const addNewJob = () => {
-        const newJob: Job = {
-            id: activeJobs.length + 1,
-            title: 'Yeni İlan',
-            type: 'Full-time',
-            salary: 'Belirtilmemiş',
-            applicants: 0,
-            status: 'draft'
-        };
-        setActiveJobs([...activeJobs, newJob]);
-    };
-
-    if (loading) {
+    if (loading || status === 'loading') {
         return (
             <div className="flex h-screen items-center justify-center bg-[#f8fafc]">
                 <div className="text-[#3498db] font-bold text-xl animate-pulse">Şirket profili yükleniyor...</div>
@@ -276,28 +227,20 @@ export default function EmployerProfile() {
 
     return (
         <div className="min-h-screen bg-[#f8fafc] font-sans text-[#2c3e50]">
-            {/* Minimal Üst Butonlar */}
-            <div className="absolute top-6 left-6 z-50 flex gap-3">
-                <a href="/" className="flex items-center gap-2 px-4 py-2 bg-white/20 hover:bg-white/30 backdrop-blur-md rounded-full text-sm font-bold transition-all text-white no-underline border border-white/20">
-                    🏠 Ana Sayfa
-                </a>
-                <button
-                    onClick={handleLogout}
-                    className="flex items-center gap-2 px-4 py-2 bg-red-500/20 hover:bg-red-500/40 backdrop-blur-md rounded-full text-sm font-bold transition-all text-white border border-white/20"
-                >
-                    <LogOut className="w-4 h-4" />
-                    Çıkış Yap
-                </button>
-                <button
-                    onClick={handleDeleteProfile}
-                    className="flex items-center gap-2 px-4 py-2 bg-white/10 hover:bg-white/20 backdrop-blur-md rounded-full text-sm font-bold transition-all text-white border border-white/20"
-                    title="Profili Sıfırla"
-                >
-                    <div className="w-4 h-4 font-bold text-center">🗑️</div>
-                </button>
-            </div>
+            <nav className="bg-white border-b border-gray-200 sticky top-0 z-40 bg-opacity-80 backdrop-blur-md h-16 flex items-center">
+                <div className="max-w-[1200px] mx-auto w-full px-5 flex items-center justify-between">
+                    <Link href="/" className="font-black text-xl tracking-tight text-slate-900 no-underline">
+                        Net<span className="text-blue-600">-Work</span>
+                    </Link>
+                    <div className="flex items-center gap-3">
+                        <Link href="/" className="text-sm font-bold text-slate-500 hover:text-slate-900 no-underline">Ana Sayfa</Link>
+                        <button onClick={handleLogout} className="text-sm font-bold text-red-500 hover:text-red-600">Çıkış</button>
+                    </div>
+                </div>
+            </nav>
+
             {/* Header */}
-            <header className="bg-gradient-to-br from-[#1e3c72] to-[#2a5298] text-white py-[60px] pb-10 mb-10 border-b border-[#1a3a6e]">
+            <header className="bg-gradient-to-br from-[#1e3c72] to-[#2a5298] text-white py-[60px] pb-10">
                 <div className="max-w-[1200px] mx-auto px-5">
                     <div className="flex flex-col md:flex-row gap-10 items-center md:items-start text-center md:text-left">
                         <div className="w-[120px] h-[120px] bg-gradient-to-br from-[#3498db] to-[#2980b9] rounded-3xl flex items-center justify-center text-[2.5rem] font-bold text-white border-[5px] border-white/20 shadow-2xl relative overflow-hidden group">
@@ -310,11 +253,11 @@ export default function EmployerProfile() {
                             {isEditing && (
                                 <label className="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 cursor-pointer transition-opacity">
                                     <input type="file" className="hidden" accept="image/*" onChange={handleLogoUpload} />
-                                    <span className="text-xs text-white font-bold">Logo Değiştir</span>
+                                    <span className="text-[10px] text-white font-black uppercase">Logo Değiştir</span>
                                 </label>
                             )}
-                            <div className="absolute -top-2.5 -right-2.5 bg-[#27ae60] text-white px-3 py-1.5 rounded-full text-xs font-bold shadow-md">
-                                ✓ Onaylı
+                            <div className="absolute -top-2.5 -right-2.5 bg-green-500 text-white px-3 py-1.5 rounded-full text-[10px] font-black shadow-md border border-white/20">
+                                ✓ ONAYLI
                             </div>
                         </div>
 
@@ -345,23 +288,18 @@ export default function EmployerProfile() {
                                 </div>
                             ) : (
                                 <>
-                                    <h1 className="text-[2.5rem] mb-2.5 text-white font-bold">{company.company_name}</h1>
+                                    <h1 className="text-[2.5rem] mb-2.5 text-white font-black tracking-tight leading-none">{company.company_name}</h1>
                                     <p className="text-xl opacity-90 mb-1 flex items-center justify-center md:justify-start gap-2">🏢 {company.industry}</p>
                                     <p className="text-white/80 mb-4 flex items-center justify-center md:justify-start gap-1">📍 {company.location}</p>
 
                                     <div className="flex flex-wrap justify-center md:justify-start gap-2 mb-2">
                                         {company.is_secure && (
-                                            <span className="flex items-center gap-1 bg-green-500/20 text-green-300 text-[10px] font-black uppercase px-2 py-1 rounded border border-green-500/30">
+                                            <span className="flex items-center gap-1 bg-green-500 px-3 py-1 rounded-full text-[10px] font-black uppercase text-white shadow-lg">
                                                 <ShieldCheck className="w-3 h-3" /> GÜVENLİ
                                             </span>
                                         )}
-                                        {company.is_suspicious && (
-                                            <span className="flex items-center gap-1 bg-red-500/20 text-red-300 text-[10px] font-black uppercase px-2 py-1 rounded border border-red-500/30">
-                                                <ShieldAlert className="w-3 h-3" /> ŞÜPHELİ
-                                            </span>
-                                        )}
                                         {company.fast_responder && (
-                                            <span className="flex items-center gap-1 bg-blue-500/20 text-blue-300 text-[10px] font-black uppercase px-2 py-1 rounded border border-blue-500/30">
+                                            <span className="flex items-center gap-1 bg-blue-500 px-3 py-1 rounded-full text-[10px] font-black uppercase text-white shadow-lg">
                                                 <Clock className="w-3 h-3" /> HIZLI CEVAP
                                             </span>
                                         )}
@@ -369,43 +307,39 @@ export default function EmployerProfile() {
                                 </>
                             )}
 
-                            <div className="flex flex-col md:flex-row gap-7 my-6 bg-white/10 p-5 rounded-xl backdrop-blur-md border border-white/20">
+                            <div className="flex flex-col md:flex-row gap-7 my-6 bg-white/10 p-5 rounded-3xl backdrop-blur-md border border-white/20">
                                 <div className="flex-1 text-center">
-                                    <span className="block text-3xl font-bold text-[#4fc3f7]">{activeJobs.length}</span>
-                                    <span className="text-sm text-white/80 tracking-wide uppercase">Aktif İlan</span>
+                                    <span className="block text-3xl font-black text-white">{activeJobs.length}</span>
+                                    <span className="text-[10px] text-white/60 font-black tracking-[0.2em] uppercase">Aktif İlan</span>
+                                </div>
+                                <div className="flex-1 text-center border-x border-white/10">
+                                    <span className="block text-3xl font-black text-white">4.7</span>
+                                    <span className="text-[10px] text-white/60 font-black tracking-[0.2em] uppercase">Puan</span>
                                 </div>
                                 <div className="flex-1 text-center">
-                                    <span className="block text-3xl font-bold text-[#4fc3f7]">4.7</span>
-                                    <span className="text-sm text-white/80 tracking-wide uppercase">Şirket Puanı</span>
-                                </div>
-                                <div className="flex-1 text-center">
-                                    <span className="block text-3xl font-bold text-[#4fc3f7]">{company.founded_year}</span>
-                                    <span className="text-sm text-white/80 tracking-wide uppercase">Kuruluş</span>
-                                </div>
-                                <div className="flex-1 text-center">
-                                    <span className="block text-3xl font-bold text-[#4fc3f7]">{company.employee_count}</span>
-                                    <span className="text-sm text-white/80 tracking-wide uppercase">Çalışan</span>
+                                    <span className="block text-3xl font-black text-white">{company.employee_count}</span>
+                                    <span className="text-[10px] text-white/60 font-black tracking-[0.2em] uppercase">Çalışan</span>
                                 </div>
                             </div>
 
-                            <div className="flex gap-4 flex-wrap justify-center md:justify-start">
+                            <div className="flex gap-4 flex-wrap justify-center md:justify-start mt-8">
                                 {isEditing ? (
                                     <>
-                                        <button className="py-3 px-6 rounded-lg border-none cursor-pointer font-medium transition-all text-sm bg-gradient-to-br from-[#3498db] to-[#2980b9] text-white hover:to-[#1f639c] hover:-translate-y-0.5 shadow-md" onClick={handleSaveCompany}>
-                                            Değişiklikleri Kaydet
+                                        <button className="py-3 px-8 rounded-2xl border-none cursor-pointer font-black text-sm bg-white text-blue-900 hover:bg-[#3498db] hover:text-white transition-all shadow-lg active:scale-95" onClick={handleSaveCompany}>
+                                            KAYDET
                                         </button>
-                                        <button className="py-3 px-6 rounded-lg cursor-pointer font-medium transition-all text-sm bg-transparent border-2 border-white/30 text-white hover:bg-white/10 hover:border-white" onClick={() => setIsEditing(false)}>
-                                            İptal
+                                        <button className="py-3 px-8 rounded-2xl cursor-pointer font-black text-sm bg-transparent border-2 border-white/40 text-white hover:bg-white/10 transition-all font-black" onClick={() => setIsEditing(false)}>
+                                            İPTAL
                                         </button>
                                     </>
                                 ) : (
                                     <>
-                                        <button className="py-3 px-6 rounded-lg border-none cursor-pointer font-medium transition-all text-sm bg-gradient-to-br from-[#3498db] to-[#2980b9] text-white hover:to-[#1f639c] hover:-translate-y-0.5 shadow-md" onClick={() => setIsEditing(true)}>
-                                            Şirket Bilgilerini Düzenle
+                                        <button className="py-3 px-8 rounded-2xl border-none cursor-pointer font-black text-sm bg-white text-blue-900 hover:bg-[#3498db] hover:text-white transition-all shadow-lg active:scale-95" onClick={() => setIsEditing(true)}>
+                                            DÜZENLE
                                         </button>
-                                        <button className="py-3 px-6 rounded-lg border-none cursor-pointer font-medium transition-all text-sm bg-gradient-to-br from-[#9b59b6] to-[#8e44ad] text-white hover:to-[#7d3c98] hover:-translate-y-0.5 shadow-md" onClick={addNewJob}>
-                                            + Yeni İlan Ekle
-                                        </button>
+                                        <Link href="/yeni-ilan" className="py-3 px-8 rounded-2xl no-underline border-none cursor-pointer font-black text-sm bg-[#3498db] text-white hover:bg-[#2980b9] shadow-lg active:scale-95">
+                                            + YENİ İLAN
+                                        </Link>
                                     </>
                                 )}
                             </div>
@@ -415,245 +349,180 @@ export default function EmployerProfile() {
             </header>
 
             {/* Main Content */}
-            <main className="max-w-[1200px] mx-auto px-5 pb-[60px]">
+            <main className="max-w-[1200px] mx-auto px-5 pb-[60px] pt-10">
                 <div className="grid grid-cols-1 lg:grid-cols-[320px_1fr] gap-10">
                     {/* Left Sidebar */}
-                    <aside className="lg:sticky lg:top-[30px] h-fit">
-
-                        <SidebarSection title="📍 İletişim Bilgileri">
+                    <aside className="space-y-6">
+                        <div className="bg-white p-8 rounded-[32px] shadow-sm border border-gray-100">
+                            <h3 className="text-xs font-black text-slate-400 tracking-[0.2em] uppercase mb-6 flex items-center gap-2">
+                                <Building2 className="w-4 h-4" /> Şirket Bilgileri
+                            </h3>
                             {isEditing ? (
-                                <div className="flex flex-col gap-2">
-                                    <input
-                                        type="url"
-                                        value={company.website}
-                                        onChange={(e) => setCompany({ ...company, website: e.target.value })}
-                                        className="w-full p-2 border-2 border-[#e0e6ed] rounded-md text-base text-[#2c3e50] outline-none focus:border-[#3498db]"
-                                        placeholder="Website"
-                                    />
-                                    <input
-                                        type="email"
-                                        value={company.email}
-                                        onChange={(e) => setCompany({ ...company, email: e.target.value })}
-                                        className="w-full p-2 border-2 border-[#e0e6ed] rounded-md text-base text-[#2c3e50] outline-none focus:border-[#3498db]"
-                                        placeholder="E-posta"
-                                    />
-                                    <input
-                                        type="tel"
-                                        value={company.phone}
-                                        onChange={(e) => setCompany({ ...company, phone: e.target.value })}
-                                        className="w-full p-2 border-2 border-[#e0e6ed] rounded-md text-base text-[#2c3e50] outline-none focus:border-[#3498db]"
-                                        placeholder="Telefon"
-                                    />
+                                <div className="space-y-4">
+                                    <div>
+                                        <label className="text-[10px] font-black text-slate-400 uppercase">Kuruluş Yılı</label>
+                                        <input type="text" value={company.founded_year} onChange={e => setCompany({...company, founded_year: e.target.value})} className="w-full p-3 bg-slate-50 border-none rounded-xl text-sm font-bold mt-1" />
+                                    </div>
+                                    <div>
+                                        <label className="text-[10px] font-black text-slate-400 uppercase">Websitesi</label>
+                                        <input type="text" value={company.website} onChange={e => setCompany({...company, website: e.target.value})} className="w-full p-3 bg-slate-50 border-none rounded-xl text-sm font-bold mt-1" />
+                                    </div>
+                                    <div>
+                                        <label className="text-[10px] font-black text-slate-400 uppercase">Çalışan Sayısı</label>
+                                        <select value={company.employee_count} onChange={e => setCompany({...company, employee_count: e.target.value})} className="w-full p-3 bg-slate-50 border-none rounded-xl text-sm font-bold mt-1">
+                                            <option value="1-10">1-10</option>
+                                            <option value="11-50">11-50</option>
+                                            <option value="51-200">51-200</option>
+                                            <option value="200+">200+</option>
+                                        </select>
+                                    </div>
                                 </div>
                             ) : (
-                                <>
-                                    <p className="flex items-center gap-2 text-[#2c3e50] my-2">🌐 {company.website}</p>
-                                    <p className="flex items-center gap-2 text-[#2c3e50] my-2">📧 {company.email}</p>
-                                    <p className="flex items-center gap-2 text-[#2c3e50] my-2">📞 {company.phone}</p>
-                                </>
+                                <div className="space-y-4">
+                                    <div className="flex items-center justify-between">
+                                        <span className="text-xs font-bold text-slate-500">Kuruluş</span>
+                                        <span className="text-xs font-black text-slate-900">{company.founded_year}</span>
+                                    </div>
+                                    <div className="flex items-center justify-between">
+                                        <span className="text-xs font-bold text-slate-500">Çalışan</span>
+                                        <span className="text-xs font-black text-slate-900">{company.employee_count}</span>
+                                    </div>
+                                    <div className="pt-4 border-t border-slate-50">
+                                        <a href={company.website} target="_blank" className="flex items-center gap-2 text-xs font-black text-blue-600 no-underline hover:text-blue-700">
+                                            <Globe className="w-4 h-4" /> {company.website}
+                                        </a>
+                                    </div>
+                                </div>
                             )}
-                            <div className="flex gap-4 mt-4">
-                                {['LinkedIn', 'Twitter', 'Instagram'].map(social => (
-                                    <a key={social} href="#" className="text-[#3498db] no-underline text-sm hover:text-[#2980b9] hover:underline transition-colors">{social}</a>
-                                ))}
-                            </div>
-                        </SidebarSection>
+                        </div>
 
-                        <SidebarSection title="👥 Çalışan Avantajları">
-                            <div className="flex flex-wrap gap-2.5 mt-2.5">
+                        <div className="bg-white p-8 rounded-[32px] shadow-sm border border-gray-100">
+                            <h3 className="text-xs font-black text-slate-400 tracking-[0.2em] uppercase mb-6 flex items-center gap-2">
+                                <Star className="w-4 h-4" /> Avantajlar
+                            </h3>
+                            <div className="flex flex-wrap gap-2">
                                 {company.benefits.map((benefit, index) => (
-                                    <span key={index} className="bg-gradient-to-br from-[#e3f2fd] to-[#bbdefb] px-4 py-2 rounded-full text-sm text-[#1976d2] border border-[#bbdefb] inline-flex items-center gap-2">
+                                    <div key={index} className="px-3 py-1 bg-slate-50 text-slate-700 rounded-lg text-[10px] font-black uppercase flex items-center gap-1 transition-all hover:bg-slate-100">
                                         {benefit}
                                         {isEditing && (
-                                            <button
-                                                className="bg-none border-none text-[#1976d2] cursor-pointer text-lg p-0 w-5 h-5 flex items-center justify-center rounded-full hover:bg-[#1976d2]/10 hover:text-[#1565c0]"
-                                                onClick={() => removeBenefit(benefit)}
-                                            >
-                                                ×
-                                            </button>
+                                            <button onClick={() => removeBenefit(benefit)} className="text-red-400 hover:text-red-600">×</button>
                                         )}
-                                    </span>
+                                    </div>
                                 ))}
                             </div>
                             {isEditing && (
-                                <div className="flex gap-2 mt-4">
-                                    <input
-                                        type="text"
-                                        value={newBenefit}
-                                        onChange={(e) => setNewBenefit(e.target.value)}
-                                        onKeyPress={(e) => e.key === 'Enter' && addBenefit()}
-                                        className="flex-1 p-2 border-2 border-[#e0e6ed] rounded-md text-sm text-[#2c3e50] outline-none focus:border-[#3498db]"
-                                        placeholder="Yeni avantaj ekle"
-                                    />
-                                    <button className="bg-[#3498db] text-white border-none rounded-md w-9 h-9 cursor-pointer text-xl flex items-center justify-center hover:bg-[#2980b9]" onClick={addBenefit}>+</button>
+                                <div className="mt-4 flex gap-2">
+                                    <input type="text" value={newBenefit} onChange={e => setNewBenefit(e.target.value)} onKeyPress={e => e.key === 'Enter' && addBenefit()} className="flex-1 p-2 bg-slate-50 border-none rounded-xl text-xs font-bold" placeholder="Ekle..." />
+                                    <button onClick={addBenefit} className="p-2 bg-blue-600 text-white rounded-xl">+</button>
                                 </div>
                             )}
-                        </SidebarSection>
+                        </div>
+
+                        <button onClick={handleDeleteProfile} className="w-full p-4 text-[10px] font-black tracking-widest uppercase text-red-500 hover:bg-red-50 rounded-2xl transition-all">
+                            Profili Sıfırla
+                        </button>
                     </aside>
 
                     {/* Right Content */}
-                    <div className="flex-1">
+                    <div className="space-y-8">
                         {/* Tabs */}
-                        <div className="flex gap-1.5 border-b-2 border-[#e0e6ed] pb-2.5 mb-7 flex-wrap">
-                            <TabButton active={activeTab === 'company'} onClick={() => setActiveTab('company')} icon="🏢" label="Şirket Bilgileri" />
-                            <TabButton active={activeTab === 'jobs'} onClick={() => setActiveTab('jobs')} icon="📋" label={`Aktif İlanlar (${activeJobs.length})`} />
-                            <TabButton active={activeTab === 'reviews'} onClick={() => setActiveTab('reviews')} icon="⭐" label="Çalışan Yorumları" />
+                        <div className="flex gap-1.5 border-b border-slate-200">
+                            {[
+                                { id: 'company', label: 'Hakkımızda', icon: '🏢' },
+                                { id: 'jobs', label: 'İş İlanları', icon: '📋' },
+                                { id: 'reviews', label: 'Yorumlar', icon: '⭐' }
+                            ].map(tab => (
+                                <button
+                                    key={tab.id}
+                                    onClick={() => setActiveTab(tab.id as any)}
+                                    className={`px-8 py-4 text-xs font-black uppercase tracking-[0.2em] relative transition-all ${activeTab === tab.id ? 'text-blue-600' : 'text-slate-400 hover:text-slate-600'}`}
+                                >
+                                    {tab.icon} {tab.label}
+                                    {activeTab === tab.id && <div className="absolute bottom-0 left-0 w-full h-1 bg-blue-600 rounded-t-full shadow-lg shadow-blue-200" />}
+                                </button>
+                            ))}
                         </div>
 
-                        {/* Tab Content */}
-                        <div className="animate-[fadeIn_0.3s_ease]">
+                        <section className="bg-white p-10 rounded-[40px] shadow-sm border border-gray-100 min-h-[400px]">
                             {activeTab === 'company' && (
-                                <div className="flex flex-col gap-7">
-                                    <div className="bg-white p-6 rounded-xl border border-[#e0e6ed]">
-                                        <h3 className="text-[#34495e] mb-4 text-xl font-bold flex items-center gap-2">📊 Şirket Kültürü</h3>
-                                        <p className="leading-relaxed text-[#546e7a] mb-5">
-                                            Agile metodolojileri benimseyen, yenilikçi ve dinamik bir şirketiz.
-                                            Çalışanlarımızın gelişimini ön planda tutuyor, sürekli öğrenme kültürünü destekliyoruz.
-                                        </p>
-
-                                        <div className="grid grid-cols-[repeat(auto-fit,minmax(250px,1fr))] gap-5 mt-5">
-                                            {[
-                                                { icon: '🎯', title: 'Misyon', desc: 'Teknoloji ile hayatı kolaylaştırmak' },
-                                                { icon: '👥', title: 'Takım Ruhu', desc: 'İşbirliği ve açık iletişim' },
-                                                { icon: '🚀', title: 'İnovasyon', desc: 'Sürekli gelişim ve yenilik' }
-                                            ].map((item, i) => (
-                                                <div key={i} className="flex gap-4 items-start p-4 bg-[#f8f9fa] rounded-lg border border-[#e0e6ed]">
-                                                    <span className="text-2xl">{item.icon}</span>
-                                                    <div>
-                                                        <h4 className="m-0 mb-1 text-[#2c3e50] text-base font-bold">{item.title}</h4>
-                                                        <p className="m-0 text-sm text-[#7f8c8d]">{item.desc}</p>
-                                                    </div>
-                                                </div>
-                                            ))}
-                                        </div>
+                                <div className="space-y-8">
+                                    <div>
+                                        <h3 className="text-xl font-black text-slate-900 mb-6 tracking-tight">Şirket Profili</h3>
+                                        {isEditing ? (
+                                            <textarea 
+                                                value={company.description} 
+                                                onChange={e => setCompany({...company, description: e.target.value})} 
+                                                className="w-full h-48 p-6 bg-slate-50 border-none rounded-3xl text-sm font-bold leading-relaxed outline-none focus:ring-2 ring-blue-500/10" 
+                                            />
+                                        ) : (
+                                            <p className="text-slate-600 leading-relaxed text-sm font-medium whitespace-pre-wrap">{company.description}</p>
+                                        )}
                                     </div>
-
-                                    <div className="bg-white p-6 rounded-xl border border-[#e0e6ed]">
-                                        <h3 className="text-[#34495e] mb-4 text-xl font-bold flex items-center gap-2">📍 Ofis Lokasyonları</h3>
-                                        <div className="grid grid-cols-[repeat(auto-fit,minmax(200px,1fr))] gap-5 mt-5">
-                                            {[
-                                                { title: 'İstanbul Merkez Ofis', loc: 'Maslak, İstanbul', tag: 'Ana Merkez' },
-                                                { title: 'Ankara Ofisi', loc: 'Çankaya, Ankara', tag: 'Teknoloji Merkezi' },
-                                                { title: 'İzmir Ofisi', loc: 'Balçova, İzmir', tag: 'AR-GE Merkezi' }
-                                            ].map((office, i) => (
-                                                <div key={i} className="p-5 bg-[#f8f9fa] rounded-lg border border-[#e0e6ed] relative">
-                                                    <h4 className="m-0 mb-2 text-[#2c3e50] text-base font-bold">{office.title}</h4>
-                                                    <p className="m-0 text-[#7f8c8d] text-sm">{office.loc}</p>
-                                                    <span className="absolute top-2.5 right-2.5 bg-[#e3f2fd] text-[#1976d2] px-2 py-0.5 rounded-xl text-xs font-medium">{office.tag}</span>
-                                                </div>
-                                            ))}
-                                        </div>
+                                    <div className="grid md:grid-cols-3 gap-4">
+                                        {[
+                                            { title: 'Vizyon', text: 'Geleceği şekillendiriyoruz', icon: '🎯' },
+                                            { title: 'Değerler', text: 'Güven ve şeffaflık', icon: '💎' },
+                                            { title: 'Kültür', text: 'Önce çalışan mutluluğu', icon: '🌈' }
+                                        ].map((item, i) => (
+                                            <div key={i} className="p-6 bg-slate-50 rounded-[32px] border border-slate-100 transition-all hover:scale-[1.02]">
+                                                <div className="text-2xl mb-3">{item.icon}</div>
+                                                <h4 className="text-xs font-black uppercase tracking-widest text-slate-900 mb-1">{item.title}</h4>
+                                                <p className="text-xs text-slate-500 font-bold">{item.text}</p>
+                                            </div>
+                                        ))}
                                     </div>
                                 </div>
                             )}
 
                             {activeTab === 'jobs' && (
-                                <div>
-                                    <div className="flex justify-between items-center mb-6">
-                                        <h3 className="text-[#34495e] text-xl font-bold m-0">Aktif İş İlanları</h3>
-                                        <button className="py-2 px-4 rounded-md border-none cursor-pointer font-medium text-xs bg-gradient-to-br from-[#3498db] to-[#2980b9] text-white hover:to-[#1f639c] shadow-sm" onClick={addNewJob}>
-                                            + Yeni İlan Oluştur
-                                        </button>
-                                    </div>
-
-                                    <div className="flex flex-col gap-4">
-                                        {activeJobs.map((job) => (
-                                            <div key={job.id} className="bg-white p-6 rounded-xl border border-[#e0e6ed] hover:-translate-y-1 hover:shadow-md transition-all">
-                                                <div className="flex justify-between items-start mb-4">
-                                                    <div>
-                                                        <h4 className="m-0 mb-2.5 text-[#2c3e50] text-lg font-bold">{job.title}</h4>
-                                                        <div className="flex gap-4 flex-wrap">
-                                                            <span className="bg-[#e3f2fd] text-[#1976d2] px-2.5 py-0.5 rounded-2xl text-sm">{job.type}</span>
-                                                            <span className="font-medium text-[#27ae60] text-sm">{job.salary}</span>
-                                                            <span className="text-[#7f8c8d] text-sm">{job.applicants} başvuru</span>
-                                                        </div>
-                                                    </div>
-                                                    <span className={`px-3 py-1 rounded-2xl text-xs font-medium ${job.status === 'active' ? 'bg-[#d4edda] text-[#155724]' : 'bg-[#fff3cd] text-[#856404]'}`}>
-                                                        {job.status === 'active' ? 'Yayında' : 'Taslak'}
-                                                    </span>
-                                                </div>
-
-                                                <div className="flex gap-2.5 flex-wrap">
-                                                    <button className="py-1.5 px-3 rounded-md border-2 border-[#e0e6ed] bg-transparent text-[#2c3e50] cursor-pointer text-sm hover:bg-[#e0e6ed]/30 hover:border-[#2c3e50]">
-                                                        📊 Başvuruları Gör
-                                                    </button>
-                                                    <button className="py-1.5 px-3 rounded-md border-none bg-[#f8f9fa] text-[#2c3e50] cursor-pointer text-sm hover:bg-[#e0e6ed]">
-                                                        ✏️ Düzenle
-                                                    </button>
-                                                    <button className="py-1.5 px-3 rounded-md border-none bg-[#e74c3c] text-white cursor-pointer text-sm hover:bg-[#c0392b]">
-                                                        🗑️ Sil
-                                                    </button>
+                                <div className="space-y-4">
+                                    {activeJobs.map(job => (
+                                        <div key={job.id} className="p-8 bg-slate-50 rounded-[32px] flex items-center justify-between transition-all hover:bg-white hover:shadow-xl hover:shadow-slate-200/50 group border border-transparent hover:border-slate-100">
+                                            <div>
+                                                <h4 className="text-lg font-black text-slate-900 mb-2">{job.title}</h4>
+                                                <div className="flex gap-4">
+                                                    <span className="text-[10px] font-black uppercase tracking-widest text-blue-600 bg-blue-50 px-3 py-1 rounded-lg">{job.type}</span>
+                                                    <span className="text-[10px] font-black uppercase tracking-widest text-green-600 bg-green-50 px-3 py-1 rounded-lg">{job.salary}</span>
+                                                    <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 px-3 py-1">{job.applicants} BAŞVURU</span>
                                                 </div>
                                             </div>
-                                        ))}
-                                    </div>
+                                            <button className="p-4 bg-white text-slate-900 rounded-2xl font-black text-xs shadow-sm group-hover:bg-blue-600 group-hover:text-white transition-all">
+                                                İLAN DETAYI
+                                            </button>
+                                        </div>
+                                    ))}
                                 </div>
                             )}
 
                             {activeTab === 'reviews' && (
-                                <div>
-                                    <div className="flex justify-between items-start mb-6">
-                                        <div>
-                                            <h3 className="text-[#34495e] text-xl font-bold m-0 mb-1">Çalışan Yorumları</h3>
-                                            <p className="text-[#7f8c8d] text-sm m-0">Şirketimizda çalışanların deneyimleri</p>
-                                        </div>
-                                        <div className="text-center bg-white p-4 rounded-xl border border-[#e0e6ed] min-w-[140px]">
-                                            <span className="block text-3xl font-bold text-[#f39c12]">4.7</span>
-                                            <div className="my-1 text-sm">⭐⭐⭐⭐⭐</div>
-                                            <span className="text-[#7f8c8d] text-sm">({reviews.length} yorum)</span>
-                                        </div>
-                                    </div>
-
-                                    <div className="flex flex-col gap-5">
-                                        {reviews.map((review, index) => (
-                                            <div key={index} className="bg-white p-6 rounded-xl border border-[#e0e6ed] flex flex-col md:flex-row gap-5">
-                                                <div className="shrink-0 flex md:block items-center gap-3">
-                                                    <div className="w-[50px] h-[50px] bg-gradient-to-br from-[#3498db] to-[#2980b9] text-white rounded-full flex items-center justify-center font-bold text-lg">
-                                                        {review.name.charAt(0)}
+                                <div className="space-y-6">
+                                    {reviews.map((review, i) => (
+                                        <div key={i} className="p-8 bg-slate-50 rounded-[32px] border border-slate-100">
+                                            <div className="flex justify-between items-start mb-4">
+                                                <div className="flex items-center gap-4">
+                                                    <div className="w-12 h-12 bg-blue-600 rounded-2xl flex items-center justify-center font-black text-white text-xl">
+                                                        {review.name[0]}
                                                     </div>
-                                                    <div className="md:mt-2.5">
-                                                        <div className="font-bold text-base text-[#2c3e50]">{review.name}</div>
-                                                        <div className="text-[#7f8c8d] text-xs my-0.5">{review.role}</div>
-                                                        <div className="text-[#f39c12] text-sm">{"⭐".repeat(review.rating)}</div>
+                                                    <div>
+                                                        <h4 className="text-sm font-black text-slate-900">{review.name}</h4>
+                                                        <p className="text-[10px] font-black uppercase text-slate-400">{review.role}</p>
                                                     </div>
                                                 </div>
-                                                <div className="flex-1">
-                                                    <p className="leading-relaxed text-[#546e7a] m-0 mb-4">"{review.comment}"</p>
-                                                    <div className="flex justify-between items-center">
-                                                        <span className="text-[#95a5a6] text-xs">{review.date}</span>
-                                                        <button className="bg-none border border-[#3498db] text-[#3498db] px-3 py-1.5 rounded-md cursor-pointer text-xs hover:bg-[#3498db] hover:text-white transition-all">Yanıtla</button>
-                                                    </div>
+                                                <div className="flex gap-0.5">
+                                                    {[...Array(5)].map((_, j) => (
+                                                        <Star key={j} className={`w-3 h-3 ${j < review.rating ? 'fill-yellow-400 text-yellow-400' : 'text-slate-200'}`} />
+                                                    ))}
                                                 </div>
                                             </div>
-                                        ))}
-                                    </div>
+                                            <p className="text-sm text-slate-600 font-medium italic leading-relaxed">"{review.comment}"</p>
+                                        </div>
+                                    ))}
                                 </div>
                             )}
-                        </div>
+                        </section>
                     </div>
                 </div>
             </main>
         </div>
-    );
-}
-
-// Sub-components
-function SidebarSection({ title, children }: { title: string, children: React.ReactNode }) {
-    return (
-        <div className="bg-white p-6 rounded-xl mb-5 border border-[#e0e6ed] shadow-sm">
-            <h3 className="mb-4 text-base text-[#34495e] flex items-center gap-2 font-bold">{title}</h3>
-            {children}
-        </div>
-    );
-}
-
-function TabButton({ active, onClick, icon, label }: { active: boolean, onClick: () => void, icon: string, label: string }) {
-    return (
-        <button
-            className={`py-3 px-6 rounded-t-lg border-none cursor-pointer font-medium transition-all flex items-center gap-2 ${active ? 'bg-[#e3f2fd] text-[#1976d2] border-b-[3px] border-[#1976d2]' : 'bg-transparent text-[#7f8c8d] hover:bg-[#f8f9fa] hover:text-[#3498db]'}`}
-            onClick={onClick}
-        >
-            <span>{icon}</span> {label}
-        </button>
     );
 }

@@ -1,10 +1,10 @@
 "use client";
 import { useEffect, useState } from "react";
-import { supabase } from "@/lib/supabase";
 import Link from "next/link";
+import { useSession } from "next-auth/react";
 import { ArrowLeft, MessageSquare, Briefcase, Calendar, User, Send } from "lucide-react";
 import { sanitizeHTML } from "@/lib/sanitize";
-import { getOrCreateConversation } from "@/lib/messaging";
+import { getMyReceivedApplications, createConversationAction } from "./actions";
 
 interface Application {
     id: string;
@@ -24,48 +24,32 @@ interface Application {
 }
 
 export default function BasvurularPage() {
+    const { data: session, status } = useSession();
     const [applications, setApplications] = useState<Application[]>([]);
     const [loading, setLoading] = useState(true);
-    const [userId, setUserId] = useState<string | null>(null);
+    const userId = session?.user?.id || null;
 
     useEffect(() => {
-        async function getMyReceivedApplications() {
-            const { data: { user } } = await supabase.auth.getUser();
-            if (!user) return;
+        async function fetchApps() {
+            if (status === 'loading') return;
+            if (status === 'unauthenticated' || !userId) {
+                setLoading(false);
+                return;
+            }
 
-            setUserId(user.id);
-
-            // SECURITY FIX: Only fetch applications for jobs created by current user
-            const { data, error } = await supabase
-                .from("applications")
-                .select(`
-                  id,
-                  message,
-                  created_at,
-                  job_id,
-                  applicant_id,
-                  jobs!inner ( title, creator_id ),
-                  applicant:applicant_id ( full_name, bio, avatar_url )
-                `)
-                .eq('jobs.creator_id', user.id)
-                .order("created_at", { ascending: false });
-
+            const { data, error } = await getMyReceivedApplications();
             if (error) {
-                console.error("Başvurular çekilemedi:", error.message);
+                console.error("Başvurular çekilemedi:", error);
             } else {
-                console.log('--- DEBUG: BAŞVURULAR VERİSİ ---');
-                console.log('Current User ID:', user.id);
-                console.log('Fetched Applications:', data);
-                console.log('--------------------------------');
-                setApplications(data as any || []);
+                setApplications(data || []);
             }
             setLoading(false);
         }
 
-        getMyReceivedApplications();
-    }, []);
+        fetchApps();
+    }, [status, userId]);
 
-    if (loading) return (
+    if (loading || status === 'loading') return (
         <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-zinc-950">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
         </div>
@@ -94,11 +78,6 @@ export default function BasvurularPage() {
                         {applications.map((app) => (
                             <div key={app.id} className="bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-800 rounded-2xl p-6 shadow-sm hover:shadow-md transition-shadow">
                                 <div className="flex flex-col md:flex-row gap-6">
-
-                                    {/* Applicant Info (Left) - This block is removed as per the instruction's implied structural change */}
-                                    {/* The new structure integrates applicant info more directly into the main content area */}
-
-                                    {/* Application Content (Right) - Modified to include applicant info */}
                                     <div className="flex-1 space-y-4">
                                         <div className="flex items-center justify-between">
                                             <Link href={`/ilan/${app.job_id}`} className="group flex items-center gap-2 text-sm font-bold text-gray-900 dark:text-gray-200 hover:text-blue-600 transition-colors">
@@ -111,11 +90,13 @@ export default function BasvurularPage() {
                                             </div>
                                         </div>
 
-                                        {/* Applicant Info integrated here */}
                                         <div className="flex items-start gap-4 bg-gray-50 dark:bg-zinc-950 rounded-xl p-4">
-                                            {/* Avatar */}
                                             <div className="w-10 h-10 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center text-blue-600 dark:text-blue-400 font-bold text-lg flex-shrink-0">
-                                                {app.applicant?.full_name?.charAt(0) || "?"}
+                                                {app.applicant?.avatar_url ? (
+                                                    <img src={app.applicant.avatar_url} alt="Avatar" className="w-full h-full rounded-full object-cover" />
+                                                ) : (
+                                                    app.applicant?.full_name?.charAt(0) || "?"
+                                                )}
                                             </div>
                                             <div>
                                                 <p className="font-bold text-gray-900 dark:text-white text-sm">{app.applicant?.full_name || "İsimsiz Kullanıcı"}</p>
@@ -132,7 +113,6 @@ export default function BasvurularPage() {
                                         </div>
 
                                         <div className="flex items-center justify-end gap-2 pt-2">
-                                            {/* KENDİ BAŞVURUSU MU KONTROLÜ */}
                                             {userId && app.applicant_id && userId.toLowerCase() === app.applicant_id.toLowerCase() ? (
                                                 <div className="flex flex-col items-end">
                                                     <span className="text-[10px] font-bold uppercase tracking-wider text-amber-500 mb-1">Kendi İlanınız</span>
@@ -144,38 +124,23 @@ export default function BasvurularPage() {
                                             ) : (
                                                 <button
                                                     onClick={async () => {
-                                                        if (!userId) {
-                                                            alert('Mesaj göndermek için giriş yapmalısınız.');
-                                                            return;
-                                                        }
-
                                                         const targetId = app.applicant_id;
-                                                        if (!targetId) {
-                                                            alert('Aday bilgisi (applicant_id) eksik. Lütfen sayfayı yenileyin.');
+                                                        if (!targetId || !userId) {
+                                                            alert('Gerekli bilgiler eksik. Lütfen sayfayı yenileyin.');
                                                             return;
                                                         }
 
-                                                        if (userId.toLowerCase() === targetId.toLowerCase()) {
-                                                            alert('Kendi başvurunuza mesaj gönderemezsiniz.');
-                                                            return;
-                                                        }
-
-                                                        try {
-                                                            const conv = await getOrCreateConversation(userId, targetId);
-                                                            if (conv && conv.id) {
-                                                                window.location.href = `/mesajlar/${conv.id}`;
-                                                            } else {
-                                                                alert('Konuşma başlatılamadı. Lütfen teknik ekibe başvurun.');
-                                                            }
-                                                        } catch (error: any) {
-                                                            console.error('Mesaj Hatası Detay:', error);
-                                                            alert(`Hata: ${error.message || 'Bilinmeyen bir hata oluştu'}`);
+                                                        const { conversationId, error } = await createConversationAction(targetId);
+                                                        if (error) {
+                                                            alert(error);
+                                                        } else if (conversationId) {
+                                                            window.location.href = `/mesajlar/${conversationId}`;
                                                         }
                                                     }}
                                                     className="bg-red-600 hover:bg-red-700 text-white font-black px-10 py-4 rounded-full transition-all shadow-2xl hover:scale-110 flex items-center gap-3 text-lg border-4 border-white dark:border-zinc-800"
                                                 >
                                                     <Send className="w-6 h-6" />
-                                                    TEST V3 - MESAJ GÖNDER
+                                                    MESAJ GÖNDER
                                                 </button>
                                             )}
                                         </div>

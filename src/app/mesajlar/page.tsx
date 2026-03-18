@@ -1,35 +1,27 @@
 "use client";
 import { useEffect, useState } from "react";
-import { createClient } from "@/utils/supabase/client";
+import { useSession } from "next-auth/react";
 import { useRouter, useSearchParams } from "next/navigation";
 import ConversationList from "@/app/mesajlar/components/ConversationList";
 import ChatWindow from "@/app/mesajlar/components/ChatWindow";
-import { User } from "@supabase/supabase-js";
-
 import { Suspense } from "react";
+import Link from "next/link";
+import { Home } from "lucide-react";
 
 function MessagesContent() {
-    const supabase = createClient();
+    const { data: session, status } = useSession();
     const router = useRouter();
     const searchParams = useSearchParams();
     const conversationIdParam = searchParams.get('conversationId');
 
-    const [currentUser, setCurrentUser] = useState<User | null>(null);
+    const currentUser = session?.user || null;
     const [selectedConversationId, setSelectedConversationId] = useState<string | null>(null);
-    const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        const checkAuth = async () => {
-            const { data: { user } } = await supabase.auth.getUser();
-            if (!user) {
-                router.push('/login');
-                return;
-            }
-            setCurrentUser(user);
-            setLoading(false);
-        };
-        checkAuth();
-    }, []);
+        if (status === 'unauthenticated') {
+            router.push('/login');
+        }
+    }, [status, router]);
 
     useEffect(() => {
         if (conversationIdParam) {
@@ -37,7 +29,7 @@ function MessagesContent() {
         }
     }, [conversationIdParam]);
 
-    if (loading) return <div className="h-screen flex items-center justify-center">Yükleniyor...</div>;
+    if (status === 'loading') return <div className="h-screen flex items-center justify-center">Yükleniyor...</div>;
     if (!currentUser) return null;
 
     return (
@@ -46,12 +38,12 @@ function MessagesContent() {
             <div className={`w-full md:w-80 bg-white border-r border-gray-200 flex flex-col ${selectedConversationId ? 'hidden md:flex' : 'flex'}`}>
                 <div className="p-4 border-b border-gray-100 flex items-center justify-between">
                     <h1 className="text-xl font-bold text-gray-800">Mesajlar</h1>
-                    <a href="/" className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-50 rounded-full transition-colors" title="Ana Sayfaya Dön">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" /><polyline points="9 22 9 12 15 12 15 22" /></svg>
-                    </a>
+                    <Link href="/" className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-50 rounded-full transition-colors" title="Ana Sayfaya Dön">
+                        <Home className="w-5 h-5" />
+                    </Link>
                 </div>
                 <ConversationList
-                    currentUser={currentUser}
+                    currentUser={currentUser as any}
                     selectedId={selectedConversationId}
                     onSelect={(id) => {
                         setSelectedConversationId(id);
@@ -64,7 +56,7 @@ function MessagesContent() {
             <div className={`flex-1 flex flex-col ${!selectedConversationId ? 'hidden md:flex' : 'flex'}`}>
                 {selectedConversationId ? (
                     <ChatWindow
-                        currentUser={currentUser}
+                        currentUser={currentUser as any}
                         conversationId={selectedConversationId}
                         onBack={() => {
                             setSelectedConversationId(null);

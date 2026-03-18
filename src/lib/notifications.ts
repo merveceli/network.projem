@@ -1,4 +1,4 @@
-import { supabase } from './supabase';
+import sql from './db';
 
 export type NotificationType = 'new_application' | 'message' | 'system';
 
@@ -23,77 +23,68 @@ export async function createNotification(
     message: string,
     link?: string
 ) {
-    const { data, error } = await supabase
-        .from('notifications')
-        .insert({
-            user_id: userId,
-            type,
-            title,
-            message,
-            link,
-        })
-        .select()
-        .single();
-
-    if (error) {
+    try {
+        const result = await sql`
+            INSERT INTO notifications (user_id, type, title, message, link)
+            VALUES (${userId}, ${type}, ${title}, ${message}, ${link})
+            RETURNING *
+        `;
+        return result[0];
+    } catch (error) {
         console.error('Error creating notification:', error);
         return null;
     }
-
-    return data;
 }
 
 /**
  * Marks a notification as read
  */
 export async function markNotificationAsRead(notificationId: string) {
-    const { error } = await supabase
-        .from('notifications')
-        .update({ read: true })
-        .eq('id', notificationId);
-
-    if (error) {
+    try {
+        await sql`
+            UPDATE notifications 
+            SET read = true 
+            WHERE id = ${notificationId}
+        `;
+        return true;
+    } catch (error) {
         console.error('Error marking notification as read:', error);
         return false;
     }
-
-    return true;
 }
 
 /**
  * Marks all notifications as read for current user
  */
 export async function markAllNotificationsAsRead(userId: string) {
-    const { error } = await supabase
-        .from('notifications')
-        .update({ read: true })
-        .eq('user_id', userId)
-        .eq('read', false);
-
-    if (error) {
+    try {
+        await sql`
+            UPDATE notifications 
+            SET read = true 
+            WHERE user_id = ${userId} AND read = false
+        `;
+        return true;
+    } catch (error) {
         console.error('Error marking all notifications as read:', error);
         return false;
     }
-
-    return true;
 }
 
 /**
  * Gets unread notification count for a user
  */
 export async function getUnreadCount(userId: string): Promise<number> {
-    const { count, error } = await supabase
-        .from('notifications')
-        .select('*', { count: 'exact', head: true })
-        .eq('user_id', userId)
-        .eq('read', false);
-
-    if (error) {
+    try {
+        const result = await sql`
+            SELECT COUNT(*) 
+            FROM notifications 
+            WHERE user_id = ${userId} AND read = false
+        `;
+        return parseInt(result[0].count, 10) || 0;
+    } catch (error) {
         console.error('Error getting unread count:', error);
         return 0;
     }
-
-    return count || 0;
 }
 
 /**
@@ -103,34 +94,33 @@ export async function getRecentNotifications(
     userId: string,
     limit: number = 10
 ): Promise<Notification[]> {
-    const { data, error } = await supabase
-        .from('notifications')
-        .select('*')
-        .eq('user_id', userId)
-        .order('created_at', { ascending: false })
-        .limit(limit);
-
-    if (error) {
+    try {
+        const result = await sql`
+            SELECT * 
+            FROM notifications 
+            WHERE user_id = ${userId}
+            ORDER BY created_at DESC
+            LIMIT ${limit}
+        `;
+        return result as unknown as Notification[];
+    } catch (error) {
         console.error('Error getting notifications:', error);
         return [];
     }
-
-    return data || [];
 }
 
 /**
  * Deletes a notification
  */
 export async function deleteNotification(notificationId: string) {
-    const { error } = await supabase
-        .from('notifications')
-        .delete()
-        .eq('id', notificationId);
-
-    if (error) {
+    try {
+        await sql`
+            DELETE FROM notifications 
+            WHERE id = ${notificationId}
+        `;
+        return true;
+    } catch (error) {
         console.error('Error deleting notification:', error);
         return false;
     }
-
-    return true;
 }

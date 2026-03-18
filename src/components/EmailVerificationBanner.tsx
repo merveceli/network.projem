@@ -1,36 +1,28 @@
 "use client";
 import { useState, useEffect } from 'react';
-import { supabase } from '@/lib/supabase';
-import { AlertCircle, Mail, X } from 'lucide-react';
+import { useSession } from "next-auth/react";
+import { AlertCircle, Mail, X, Loader2 } from 'lucide-react';
 
 export default function EmailVerificationBanner() {
-    const [user, setUser] = useState<any>(null);
+    const { data: session, status } = useSession();
     const [dismissed, setDismissed] = useState(false);
     const [sending, setSending] = useState(false);
 
     useEffect(() => {
-        async function checkUser() {
-            const { data: { user } } = await supabase.auth.getUser();
-            setUser(user);
-
-            // Check if user dismissed the banner in this session
-            const dismissed = sessionStorage.getItem('email_verification_dismissed');
-            if (dismissed) setDismissed(true);
-        }
-        checkUser();
+        // Check if user dismissed the banner in this session
+        const dismissed = sessionStorage.getItem('email_verification_dismissed');
+        if (dismissed) setDismissed(true);
     }, []);
 
     const handleResendEmail = async () => {
-        if (!user?.email) return;
+        if (!session?.user?.email) return;
 
         setSending(true);
         try {
-            const { error } = await supabase.auth.resend({
-                type: 'signup',
-                email: user.email,
-            });
-
-            if (error) throw error;
+            // Note: This would typically call a custom API route that sends the verification email via Auth.js/Nodemailer
+            const res = await fetch('/api/auth/verify', { method: 'POST' });
+            if (!res.ok) throw new Error('Yükleme hatası');
+            
             alert('Doğrulama emaili gönderildi! Lütfen email kutunuzu kontrol edin.');
         } catch (error: any) {
             alert('Email gönderilemedi: ' + error.message);
@@ -44,40 +36,43 @@ export default function EmailVerificationBanner() {
         sessionStorage.setItem('email_verification_dismissed', 'true');
     };
 
-    // Don't show if user is verified, not logged in, or dismissed
-    if (!user || user.email_confirmed_at || dismissed) {
+    // Don't show if user is verified, not logged in (still loading), or dismissed
+    // In Auth.js session, emailVerified might be null or a date
+    if (status !== 'authenticated' || !session?.user || session.user.emailVerified || dismissed) {
         return null;
     }
 
     return (
-        <div className="bg-yellow-50 dark:bg-yellow-900/20 border-b border-yellow-200 dark:border-yellow-800">
-            <div className="max-w-7xl mx-auto px-6 py-3">
-                <div className="flex items-center justify-between gap-4">
-                    <div className="flex items-center gap-3 flex-1">
-                        <AlertCircle className="w-5 h-5 text-yellow-600 dark:text-yellow-500 flex-shrink-0" />
+        <div className="bg-[#FFF9EB] dark:bg-yellow-900/10 border-b border-yellow-100 dark:border-yellow-900/30 animate-in slide-in-from-top duration-300">
+            <div className="max-w-7xl mx-auto px-6 py-4">
+                <div className="flex items-center justify-between gap-6">
+                    <div className="flex items-center gap-4 flex-1">
+                        <div className="bg-yellow-100 dark:bg-yellow-500/20 p-2.5 rounded-2xl">
+                            <AlertCircle className="w-5 h-5 text-yellow-600 dark:text-yellow-500 flex-shrink-0" />
+                        </div>
                         <div className="flex-1">
-                            <p className="text-sm text-yellow-800 dark:text-yellow-200">
+                            <p className="text-[10px] font-black uppercase tracking-widest text-yellow-800 dark:text-yellow-200">
                                 <strong>Email adresinizi doğrulayın!</strong> İlan vermek ve başvuru yapmak için email doğrulaması gereklidir.
                             </p>
                         </div>
                     </div>
 
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-4">
                         <button
                             onClick={handleResendEmail}
                             disabled={sending}
-                            className="flex items-center gap-2 bg-yellow-600 hover:bg-yellow-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors disabled:opacity-50"
+                            className="flex items-center gap-2 bg-yellow-600 hover:bg-yellow-700 text-white px-6 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all disabled:opacity-50 shadow-lg shadow-yellow-500/20"
                         >
-                            <Mail className="w-4 h-4" />
-                            {sending ? 'Gönderiliyor...' : 'Email Gönder'}
+                            {sending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Mail className="w-4 h-4" />}
+                            {sending ? 'GÖNDERİLİYOR...' : 'EMAİL GÖNDER'}
                         </button>
 
                         <button
                             onClick={handleDismiss}
-                            className="p-2 hover:bg-yellow-100 dark:hover:bg-yellow-900/30 rounded-lg transition-colors"
+                            className="p-2.5 hover:bg-yellow-100 dark:hover:bg-yellow-900/30 rounded-full transition-colors group"
                             aria-label="Kapat"
                         >
-                            <X className="w-4 h-4 text-yellow-700 dark:text-yellow-400" />
+                            <X className="w-4 h-4 text-yellow-700 dark:text-yellow-400 group-hover:rotate-90 transition-transform" />
                         </button>
                     </div>
                 </div>

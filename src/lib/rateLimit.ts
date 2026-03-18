@@ -1,6 +1,6 @@
-import { supabase } from './supabase';
+import sql from './db';
 
-export type RateLimitAction = 'create_job' | 'send_application' | 'send_message';
+export type RateLimitAction = 'create_job' | 'send_application' | 'send_message' | 'newsletter_signup';
 
 export interface RateLimitConfig {
     limit: number;
@@ -12,6 +12,7 @@ export const RATE_LIMITS: Record<RateLimitAction, RateLimitConfig> = {
     create_job: { limit: 5, windowHours: 24 },
     send_application: { limit: 20, windowHours: 24 },
     send_message: { limit: 100, windowHours: 24 },
+    newsletter_signup: { limit: 3, windowHours: 24 }
 };
 
 export interface RateLimitInfo {
@@ -30,26 +31,67 @@ export async function checkRateLimit(
 ): Promise<{ allowed: boolean; info?: RateLimitInfo }> {
     const config = RATE_LIMITS[action];
 
-    const { data, error } = await supabase.rpc('check_rate_limit', {
-        p_user_id: userId,
-        p_action: action,
-        p_limit: config.limit,
-        p_window_hours: config.windowHours,
-    });
+    try {
+        // Find existing record within the window
+        const windowStart = new Date(Date.now() - config.windowHours * 60 * 60 * 1000);
+        
+        // UPSERT logic for rate limits
+        // If an entry exists for user+action, check if it's within the window
+        // If outside the window, reset count and window_start
+        // If within the window, increment count if below limit
+        
+        await sql.begin(async (tx) => {
+            const records = await tx`
+                SELECT * FROM rate_limits 
+                WHERE user_id = ${userId} AND action = ${action}
+                FOR UPDATE
+            `;
 
-    if (error) {
+            if (records.length === 0) {
+                // First time
+                await tx`
+                    INSERT INTO rate_limits (user_id, action, count, window_start)
+                    VALUES (${userId}, ${action}, 1, NOW())
+                `;
+                return { allowed: true };
+            }
+
+            const record = records[0];
+            const isOutsideWindow = new Date(record.window_start) < windowStart;
+
+            if (isOutsideWindow) {
+                // Reset window
+                await tx`
+                    UPDATE rate_limits 
+                    SET count = 1, window_start = NOW()
+                    WHERE id = ${record.id}
+                `;
+                return { allowed: true };
+            }
+
+            if (record.count < config.limit) {
+                // Increment within window
+                await tx`
+                    UPDATE rate_limits 
+                    SET count = count + 1
+                    WHERE id = ${record.id}
+                `;
+                return { allowed: true };
+            }
+
+            return { allowed: false };
+        });
+
+        const info = await getRateLimitInfo(userId, action);
+        return { 
+            allowed: info.remaining >= 0, // already incremented if it was allowed
+            info 
+        };
+
+    } catch (error) {
         console.error('Error checking rate limit:', error);
-        // On error, allow the action (fail open)
-        return { allowed: true };
+        return { allowed: true }; // fail open
     }
-
-    // Get current status
-    const info = await getRateLimitInfo(userId, action);
-
-    return {
-        allowed: data === true,
-        info,
-    };
 }
 
 /**
@@ -60,25 +102,49 @@ export async function getRateLimitInfo(
     action: RateLimitAction
 ): Promise<RateLimitInfo> {
     const config = RATE_LIMITS[action];
+    const windowStart = new Date(Date.now() - config.windowHours * 60 * 60 * 1000);
 
-    const { data, error } = await supabase.rpc('get_rate_limit_remaining', {
-        p_user_id: userId,
-        p_action: action,
-        p_limit: config.limit,
-        p_window_hours: config.windowHours,
-    });
+    try {
+        const records = await sql`
+            SELECT * FROM rate_limits 
+            WHERE user_id = ${userId} AND action = ${action}
+        `;
 
-    if (error || !data) {
-        console.error('Error getting rate limit info:', error);
-        // Return default values on error
+        if (records.length === 0) {
+            return {
+                remaining: config.limit,
+                limit: config.limit,
+                reset_at: new Date(Date.now() + config.windowHours * 60 * 60 * 1000).toISOString(),
+            };
+        }
+
+        const record = records[0];
+        const isOutsideWindow = new Date(record.window_start) < windowStart;
+
+        if (isOutsideWindow) {
+            return {
+                remaining: config.limit,
+                limit: config.limit,
+                reset_at: new Date(Date.now() + config.windowHours * 60 * 60 * 1000).toISOString(),
+            };
+        }
+
+        const remaining = Math.max(0, config.limit - record.count);
+        const resetAt = new Date(new Date(record.window_start).getTime() + config.windowHours * 60 * 60 * 1000);
+
+        return {
+            remaining,
+            limit: config.limit,
+            reset_at: resetAt.toISOString(),
+            used: record.count
+        };
+    } catch (error) {
         return {
             remaining: config.limit,
             limit: config.limit,
             reset_at: new Date(Date.now() + config.windowHours * 60 * 60 * 1000).toISOString(),
         };
     }
-
-    return data;
 }
 
 /**
@@ -108,6 +174,7 @@ export function getActionName(action: RateLimitAction): string {
         create_job: 'İlan oluşturma',
         send_application: 'Başvuru gönderme',
         send_message: 'Mesaj gönderme',
+        newsletter_signup: 'Bülten kaydı'
     };
     return names[action];
 }

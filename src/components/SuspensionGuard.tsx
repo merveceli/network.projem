@@ -1,41 +1,42 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { createClient } from '@/utils/supabase/client';
+import { useSession, signOut } from 'next-auth/react';
 import { ShieldAlert, LogOut } from 'lucide-react';
-import { supabase } from '@/lib/supabase';
+import { getProfile } from '@/app/profil/actions';
 
 export default function SuspensionGuard({ children }: { children: React.ReactNode }) {
+    const { data: session, status } = useSession();
     const [isSuspended, setIsSuspended] = useState(false);
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
         async function checkStatus() {
-            const client = createClient();
-            const { data: { user } } = await client.auth.getUser();
+            if (status === 'loading') return;
+            if (status === 'unauthenticated' || !session?.user) {
+                setLoading(false);
+                return;
+            }
 
-            if (user) {
-                const { data: profile } = await client
-                    .from('profiles')
-                    .select('is_suspended')
-                    .eq('id', user.id)
-                    .single();
-
+            try {
+                const profile = await getProfile();
                 if (profile?.is_suspended) {
                     setIsSuspended(true);
                 }
+            } catch (error) {
+                console.error("Suspension check failed:", error);
+            } finally {
+                setLoading(false);
             }
-            setLoading(false);
         }
         checkStatus();
-    }, []);
+    }, [status, session]);
 
     const handleLogout = async () => {
-        await supabase.auth.signOut();
-        window.location.href = '/';
+        await signOut({ callbackUrl: '/' });
     };
 
-    if (loading) return <>{children}</>; // Pürüzsüz geçiş için yüklemede içeriği göster (veya skeleton)
+    if (loading) return <>{children}</>;
 
     if (isSuspended) {
         return (

@@ -1,13 +1,14 @@
 "use client";
-import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react';
-import { supabase } from '@/lib/supabase';
+import React, { createContext, useContext, useEffect, useState, ReactNode, useCallback } from 'react';
+import { useSession } from "next-auth/react";
 import {
     Notification,
-    getUnreadCount,
-    getRecentNotifications,
-    markNotificationAsRead,
-    markAllNotificationsAsRead,
 } from '@/lib/notifications';
+import { 
+    getMyNotificationsAction, 
+    markReadAction, 
+    markAllReadAction 
+} from '@/app/bildirimler/actions';
 
 interface NotificationContextType {
     notifications: Notification[];
@@ -21,88 +22,47 @@ interface NotificationContextType {
 const NotificationContext = createContext<NotificationContextType | undefined>(undefined);
 
 export function NotificationProvider({ children }: { children: ReactNode }) {
+    const { data: session, status } = useSession();
     const [notifications, setNotifications] = useState<Notification[]>([]);
     const [unreadCount, setUnreadCount] = useState(0);
     const [loading, setLoading] = useState(true);
-    const [userId, setUserId] = useState<string | null>(null);
 
-    // Get current user
-    useEffect(() => {
-        async function getCurrentUser() {
-            const { data: { user } } = await supabase.auth.getUser();
-            setUserId(user?.id || null);
+    const loadNotifications = useCallback(async (isInitial = false) => {
+        if (!session?.user?.id) return;
+        if (isInitial) setLoading(true);
+
+        try {
+            const data = await getMyNotificationsAction();
+            if (data) {
+                setNotifications(data as unknown as Notification[]);
+                setUnreadCount((data as unknown as Notification[]).filter(n => !n.read).length);
+            }
+        } catch (error) {
+            console.error("Notifications fetch error:", error);
+        } finally {
+            if (isInitial) setLoading(false);
         }
-        getCurrentUser();
-    }, []);
+    }, [session]);
 
-    // Load notifications
-    const loadNotifications = async () => {
-        if (!userId) return;
-
-        const [notifs, count] = await Promise.all([
-            getRecentNotifications(userId, 10),
-            getUnreadCount(userId),
-        ]);
-
-        setNotifications(notifs);
-        setUnreadCount(count);
-        setLoading(false);
-    };
-
-    // Initial load
+    // Initial load and polling
     useEffect(() => {
-        if (userId) {
-            loadNotifications();
+        if (status === 'authenticated') {
+            loadNotifications(true);
+
+            const interval = setInterval(() => {
+                loadNotifications();
+            }, 10000); // Poll every 10 seconds
+
+            return () => clearInterval(interval);
+        } else if (status === 'unauthenticated') {
+            setNotifications([]);
+            setUnreadCount(0);
+            setLoading(false);
         }
-    }, [userId]);
-
-    // Subscribe to real-time updates
-    useEffect(() => {
-        if (!userId) return;
-
-        const channel = supabase
-            .channel('notifications')
-            .on(
-                'postgres_changes',
-                {
-                    event: 'INSERT',
-                    schema: 'public',
-                    table: 'notifications',
-                    filter: `user_id=eq.${userId}`,
-                },
-                (payload) => {
-                    const newNotification = payload.new as Notification;
-                    setNotifications((prev) => [newNotification, ...prev.slice(0, 9)]);
-                    setUnreadCount((prev) => prev + 1);
-                }
-            )
-            .on(
-                'postgres_changes',
-                {
-                    event: 'UPDATE',
-                    schema: 'public',
-                    table: 'notifications',
-                    filter: `user_id=eq.${userId}`,
-                },
-                (payload) => {
-                    const updated = payload.new as Notification;
-                    setNotifications((prev) =>
-                        prev.map((n) => (n.id === updated.id ? updated : n))
-                    );
-                    if (updated.read) {
-                        setUnreadCount((prev) => Math.max(0, prev - 1));
-                    }
-                }
-            )
-            .subscribe();
-
-        return () => {
-            supabase.removeChannel(channel);
-        };
-    }, [userId]);
+    }, [status, loadNotifications]);
 
     const markAsRead = async (id: string) => {
-        await markNotificationAsRead(id);
+        await markReadAction(id);
         setNotifications((prev) =>
             prev.map((n) => (n.id === id ? { ...n, read: true } : n))
         );
@@ -110,8 +70,8 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
     };
 
     const markAllAsRead = async () => {
-        if (!userId) return;
-        await markAllNotificationsAsRead(userId);
+        if (!session?.user?.id) return;
+        await markAllReadAction();
         setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
         setUnreadCount(0);
     };

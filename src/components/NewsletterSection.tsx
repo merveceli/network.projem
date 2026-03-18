@@ -1,11 +1,11 @@
 'use client';
 
 import { useState } from 'react';
-import { supabase } from '@/lib/supabase';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Mail, Send, CheckCircle2, AlertCircle, Loader2 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import Link from 'next/link';
+import { submitNewsletterSubscription } from '@/app/actions/newsletter-actions';
 
 export default function NewsletterSection() {
     const [email, setEmail] = useState('');
@@ -19,15 +19,10 @@ export default function NewsletterSection() {
         setStatus('loading');
 
         try {
-            const { error } = await supabase
-                .from('newsletter_subscriptions')
-                .insert([{ email }]);
+            const { success, error } = await submitNewsletterSubscription(email);
 
-            if (error) {
-                if (error.code === '23505') { // Unique constraint violation
-                    throw new Error('Bu e-posta adresi zaten kayıtlı.');
-                }
-                throw error;
+            if (!success) {
+                throw new Error(error || 'Bir hata oluştu.');
             }
 
             setStatus('success');
@@ -55,24 +50,24 @@ export default function NewsletterSection() {
                     whileInView={{ opacity: 1, y: 0 }}
                     viewport={{ once: true }}
                 >
-                    <h2 className="text-[clamp(32px,5vw,52px)] font-black text-[#1a1a2e] dark:text-white mb-6 tracking-tight leading-tight">
-                        Dijital Dünyadan <span className="text-[#4A90A4]">Habersiz Kalma</span>
+                    <h2 className="text-[clamp(32px,5vw,52px)] font-black text-[#1a1a2e] dark:text-white mb-6 tracking-tight leading-tight uppercase italic">
+                        Dijital Dünyadan <span className="text-blue-600">Habersiz Kalma</span>
                     </h2>
 
-                    <p className="text-xl text-gray-500 dark:text-zinc-400 mb-12 max-w-2xl mx-auto leading-relaxed">
+                    <p className="text-xl text-gray-400 dark:text-zinc-500 mb-12 max-w-2xl mx-auto leading-relaxed font-medium">
                         En yeni iş ilanları ve sektör analizleri her hafta e-posta kutuna gelsin.
                     </p>
 
                     <form onSubmit={handleSubscribe} className="max-w-xl mx-auto">
                         <div className="flex flex-col sm:flex-row gap-4">
                             <div className="relative flex-1 group">
-                                <Mail className="absolute left-6 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 group-focus-within:text-[#4A90A4] transition-colors" />
+                                <Mail className="absolute left-6 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 group-focus-within:text-blue-600 transition-colors" />
                                 <input
                                     type="email"
                                     placeholder="E-posta adresini buraya yaz..."
                                     value={email}
                                     onChange={(e) => setEmail(e.target.value)}
-                                    className="w-full bg-gray-50 dark:bg-white/5 border-2 border-transparent focus:border-[#4A90A4] rounded-2xl py-5 px-6 pl-14 outline-none text-lg transition-all dark:text-white placeholder:text-gray-400"
+                                    className="w-full bg-gray-50 dark:bg-white/5 border-2 border-transparent focus:border-blue-600 rounded-2xl py-5 px-6 pl-14 outline-none text-lg font-bold transition-all dark:text-white placeholder:text-gray-400"
                                     required
                                 />
                             </div>
@@ -80,13 +75,13 @@ export default function NewsletterSection() {
                             <button
                                 type="submit"
                                 disabled={status === 'loading'}
-                                className="bg-[#1a1a2e] dark:bg-[#4A90A4] text-white px-10 py-5 rounded-2xl font-bold text-lg transition-all hover:scale-105 active:scale-95 disabled:opacity-70 flex items-center justify-center gap-2 shadow-xl shadow-black/10 dark:shadow-[#4A90A4]/20"
+                                className="bg-slate-900 dark:bg-blue-600 text-white px-10 py-5 rounded-2xl font-black text-xs uppercase tracking-[0.2em] transition-all hover:scale-105 hover:bg-black active:scale-95 disabled:opacity-70 flex items-center justify-center gap-2 shadow-2xl shadow-blue-500/20"
                             >
                                 {status === 'loading' ? (
                                     <Loader2 className="w-5 h-5 animate-spin" />
                                 ) : (
                                     <>
-                                        <span>Ücretsiz Katıl</span>
+                                        <span>ÜCRETSİZ KATIL</span>
                                         <Send className="w-4 h-4" />
                                     </>
                                 )}
@@ -118,8 +113,8 @@ export default function NewsletterSection() {
                         </AnimatePresence>
                     </form>
 
-                    <div className="mt-10 text-[13px] text-gray-400">
-                        Kaydolarak <Link href="/gizlilik" className="text-[#4A90A4] hover:underline">Gizlilik Politikamızı</Link> kabul etmiş olursun.
+                    <div className="mt-10 text-[10px] font-black uppercase tracking-widest text-gray-400">
+                        Kaydolarak <Link href="/gizlilik" className="text-blue-600 hover:underline">Gizlilik Politikamızı</Link> kabul etmiş olursun.
                     </div>
                 </motion.div>
             </div>

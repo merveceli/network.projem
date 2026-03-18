@@ -1,30 +1,29 @@
 "use client";
 import { useEffect, useState } from "react";
-import { supabase } from "@/lib/supabase";
+import { useSession } from "next-auth/react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, CheckCircle2, Send, AlertCircle, Briefcase, Flag } from "lucide-react";
+import { ArrowLeft, CheckCircle2, Send, AlertCircle, Briefcase, Flag, Loader2, ChevronRight, LayoutGrid } from "lucide-react";
 import { Filter } from 'bad-words';
 import ReportModal from "@/components/ReportModal";
 import { useToast } from "@/contexts/ToastContext";
+import { getJobById, checkApplicationStatus, applyToJob, toggleJobFilledAction } from "../actions";
 
 // --- TİPLER ---
 interface Job {
     id: string;
     title: string;
     description: string;
-    salary_range: string; // Add this field
+    salary_range: string;
     creator_id: string;
     is_filled: boolean;
-
     urgency: 'normal' | 'urgent';
     images: string[];
-    profiles: {
-        full_name: string | null;
-    } | null;
+    creator_name: string | null;
 }
 
 export default function JobDetailPage() {
+    const { data: session, status } = useSession();
     const { id } = useParams();
     const router = useRouter();
     const [job, setJob] = useState<Job | null>(null);
@@ -35,342 +34,259 @@ export default function JobDetailPage() {
     const [applying, setApplying] = useState(false);
     const [applied, setApplied] = useState(false);
     const [isOwner, setIsOwner] = useState(false);
-    const [currentUser, setCurrentUser] = useState<string | null>(null);
-    const [alreadyAppliedOnLoad, setAlreadyAppliedOnLoad] = useState(false); // New state to distinguish
     const [togglingFilled, setTogglingFilled] = useState(false);
     const [isReportModalOpen, setIsReportModalOpen] = useState(false);
-    const { success, error: toastError, info } = useToast();
+    const { success: toastSuccess, error: toastError } = useToast();
 
     useEffect(() => {
-        async function getJobAndUserStatus() {
-            // 1. Get current user
-            const { data: { user } } = await supabase.auth.getUser();
-            const userId = user ? user.id : null;
-            setCurrentUser(userId);
-
-            if (id) {
-                // 2. Fetch Job Details
-                const { data: jobData, error } = await supabase
-                    .from("jobs")
-                    .select(`id, title, description, salary_range, creator_id, is_filled, urgency, images, profiles:creator_id(full_name)`)
-                    .eq("id", id)
-                    .single();
-
-                if (jobData) {
-                    setJob(jobData as any);
-
-                    // 3. Check if user is owner
-                    if (userId && jobData.creator_id === userId) {
-                        setIsOwner(true);
-                    }
-
-                    // 4. Check if user already applied
-                    if (userId) {
-                        const { data: applicationData } = await supabase
-                            .from("applications")
-                            .select("id")
-                            .eq("job_id", id)
-                            .eq("applicant_id", userId)
-                            .single();
-
-                        if (applicationData) {
-                            setApplied(true);
-                            setAlreadyAppliedOnLoad(true); // Set this flag if applied on load
-                        }
-                    }
+        async function loadJobData() {
+            if (!id) return;
+            const jobData = await getJobById(id as string);
+            
+            if (jobData) {
+                setJob(jobData as unknown as Job);
+                if (session?.user?.id === (jobData as any).creator_id) {
+                    setIsOwner(true);
                 }
+
+                const hasApplied = await checkApplicationStatus(id as string);
+                setApplied(hasApplied);
             }
             setLoading(false);
         }
-        getJobAndUserStatus();
-    }, [id]);
 
-    const toggleFilledStatus = async () => {
+        if (status !== 'loading') {
+            loadJobData();
+        }
+    }, [id, session, status]);
+
+    const handleToggleFilled = async () => {
         if (!job || !isOwner) return;
 
         setTogglingFilled(true);
-        try {
-            const { error } = await supabase
-                .from("jobs")
-                .update({ is_filled: !job.is_filled })
-                .eq("id", job.id);
+        const { success, error } = await toggleJobFilledAction(job.id, !job.is_filled);
 
-            if (error) throw error;
-
-            // Update local state
+        if (success) {
             setJob({ ...job, is_filled: !job.is_filled });
-        } catch (error: any) {
-            alert("Durum güncellenirken hata oluştu: " + error.message);
-        } finally {
-            setTogglingFilled(false);
+            toastSuccess(job.is_filled ? "İlan aktifleştirildi." : "İş verildi olarak işaretlendi.");
+        } else {
+            toastError(error || "Durum güncellenirken hata oluştu.");
         }
+        setTogglingFilled(false);
     };
 
     const handleApply = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!currentUser) {
-            alert("Başvuru yapmak için giriş yapmalısınız.");
+        if (status === 'unauthenticated') {
+            toastError("Başvuru yapmak için giriş yapmalısınız.");
             router.push("/login");
             return;
         }
-        if (!job) return;
+        if (!job || !id) return;
 
         // PROFANITY FILTER CHECK
         const filter = new Filter();
         if (filter.isProfane(message)) {
-            alert("Mesajınızda uygunsuz ifadeler bulundu. Lütfen düzenleyip tekrar deneyiniz.");
+            toastError("Mesajınızda uygunsuz ifadeler bulundu.");
             return;
         }
 
         setApplying(true);
+        const { success, error } = await applyToJob(id as string, message);
 
-        try {
-            const { error } = await supabase
-                .from("applications")
-                .insert({
-                    job_id: job.id,
-                    applicant_id: currentUser,
-                    message: message
-                });
-
-            if (error) throw error;
-
+        if (success) {
             setApplied(true);
-            setAlreadyAppliedOnLoad(false); // Reset this if a new application is successfully sent
             setMessage("");
-        } catch (error: any) {
-            alert("Başvuru sırasında bir hata oluştu: " + error.message);
-        } finally {
-            setApplying(false);
+            toastSuccess("Başvurunuz başarıyla gönderildi! ✨");
+        } else {
+            toastError(error || "Başvuru sırasında bir hata oluştu.");
         }
+        setApplying(false);
     };
 
-    if (loading) return (
-        <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-zinc-950">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+    if (loading || status === 'loading') return (
+        <div className="min-h-screen flex items-center justify-center bg-[#F8FAFC]">
+            <Loader2 className="w-10 h-10 text-blue-600 animate-spin" />
         </div>
     );
 
     if (!job) return (
-        <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 dark:bg-zinc-950 text-center p-6">
-            <AlertCircle className="w-12 h-12 text-red-500 mb-4" />
-            <h2 className="text-xl font-bold text-gray-900 dark:text-white">İlan Bulunamadı</h2>
-            <Link href="/ilanlar" className="mt-4 text-blue-600 hover:underline">İlanlara Geri Dön</Link>
+        <div className="min-h-screen flex flex-col items-center justify-center bg-[#F8FAFC] text-center p-8">
+            <div className="w-20 h-20 bg-red-50 rounded-full flex items-center justify-center mb-8">
+                <AlertCircle className="w-10 h-10 text-red-500" />
+            </div>
+            <h2 className="text-4xl font-black uppercase italic tracking-tighter mb-4">İlan Bulunamadı</h2>
+            <Link href="/ilanlar" className="px-8 py-3 bg-blue-600 text-white rounded-full text-[10px] font-black uppercase tracking-widest no-underline">İLANLARA DÖN</Link>
         </div>
     );
 
-    // --- STRUCTURED DATA (JSON-LD) ---
-    const jsonLd = job ? {
-        '@context': 'https://schema.org',
-        '@type': 'JobPosting',
-        title: job.title,
-        description: job.description,
-        datePosted: new Date().toISOString(), // Aslında job.created_at olmalı ama dbden çekmedik, şimdilik böyle
-        validThrough: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
-        employmentType: 'CONTRACTOR',
-        hiringOrganization: {
-            '@type': 'Organization',
-            name: job.profiles?.full_name || 'Gizli İşveren',
-            sameAs: 'https://net-work.com.tr'
-        },
-        jobLocation: {
-            '@type': 'Place',
-            address: {
-                '@type': 'PostalAddress',
-                addressCountry: 'TR'
-            }
-        },
-        baseSalary: {
-            '@type': 'MonetaryAmount',
-            currency: 'TRY',
-            value: {
-                '@type': 'QuantitativeValue',
-                value: 0, // Belirtilmemiş
-                unitText: 'PROJECT'
-            }
-        }
-    } : null;
-
     return (
-        <div className="min-h-screen bg-gray-50 dark:bg-zinc-950 flex items-center justify-center p-6 font-sans">
-            {/* Structured Data injection */}
-            {jsonLd && (
-                <script
-                    type="application/ld+json"
-                    dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
-                />
-            )}
-            <div className="max-w-2xl w-full bg-white dark:bg-zinc-900 rounded-3xl shadow-xl border border-gray-100 dark:border-zinc-800 p-8 md:p-12">
+        <div className="min-h-screen bg-[#F8FAFC] flex items-center justify-center p-8 font-sans selection:bg-blue-500/30">
+            <div className="max-w-4xl w-full bg-white rounded-[60px] shadow-2xl shadow-slate-200/50 border border-gray-100 p-12 md:p-20 relative overflow-hidden">
+                <div className="absolute top-0 right-0 p-20 opacity-[0.03] pointer-events-none">
+                    <LayoutGrid className="w-96 h-96" />
+                </div>
 
-                <div className="flex justify-between items-center mb-8">
-                    <Link href="/ilanlar" className="inline-flex items-center gap-2 text-sm text-gray-500 hover:text-blue-600 transition-colors">
+                <div className="flex justify-between items-center mb-16 relative z-10">
+                    <Link href="/ilanlar" className="flex items-center gap-3 px-6 py-3 bg-slate-50 hover:bg-slate-100 rounded-full text-[10px] font-black uppercase tracking-widest transition-all text-slate-400 no-underline">
                         <ArrowLeft className="w-4 h-4" />
-                        İlanlara Geri Dön
+                        İLANA DÖN
                     </Link>
 
                     {!isOwner && (
                         <button
                             onClick={() => setIsReportModalOpen(true)}
-                            className="flex items-center gap-2 text-xs font-bold text-gray-400 hover:text-red-500 transition-colors"
+                            className="flex items-center gap-3 text-[10px] font-black text-slate-400 hover:text-red-500 transition-all uppercase tracking-widest"
                         >
-                            <Flag className="w-3.5 h-3.5" />
-                            İlanı Şikayet Et
+                            <Flag className="w-4 h-4" />
+                            İLAN ŞİKAYET
                         </button>
                     )}
                 </div>
 
-                <div>
-                    <div className="flex items-center gap-3 mb-4">
-                        <h1 className="text-3xl md:text-4xl font-black text-gray-900 dark:text-white tracking-tight">{job.title}</h1>
-                        {job.is_filled && (
-                            <span className="bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 text-xs font-bold px-3 py-1.5 rounded-full border border-green-200 dark:border-green-800">
-                                İş Verildi ✓
-                            </span>
-                        )}
-                        {job.urgency === 'urgent' && (
-                            <span className="bg-red-600 text-white text-xs font-black px-3 py-1.5 rounded-full animate-pulse shadow-red-500/50 shadow-lg">
-                                ACİL
-                            </span>
-                        )}
+                <div className="relative z-10">
+                    <div className="flex flex-col md:flex-row items-center md:items-start justify-between gap-8 mb-12">
+                        <div className="flex-1 text-center md:text-left">
+                            <h1 className="text-5xl md:text-7xl font-black text-slate-900 tracking-tighter uppercase italic leading-[0.9] mb-6">{job.title}</h1>
+                            
+                            <div className="flex flex-wrap items-center justify-center md:justify-start gap-3">
+                                {job.is_filled && (
+                                    <span className="bg-green-500 text-white text-[10px] font-black px-6 py-2 rounded-full uppercase tracking-widest shadow-lg shadow-green-500/20">
+                                        TAMAMLANDI ✓
+                                    </span>
+                                )}
+                                {job.urgency === 'urgent' && (
+                                    <span className="bg-red-600 text-white text-[10px] font-black px-6 py-2 rounded-full animate-pulse shadow-lg shadow-red-600/20 tracking-widest uppercase">
+                                        ACİL İLAN
+                                    </span>
+                                )}
+                                <span className="bg-slate-100 text-slate-600 text-[10px] font-black px-6 py-2 rounded-full tracking-widest uppercase">
+                                    <Briefcase className="w-3 h-3 inline mr-2" /> {job.salary_range}
+                                </span>
+                            </div>
+                        </div>
                     </div>
 
                     {/* Image Gallery */}
                     {job.images && job.images.length > 0 && (
-                        <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-8">
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-16">
                             {job.images.map((img, idx) => (
-                                <div key={idx} className="relative aspect-video rounded-xl overflow-hidden border border-gray-100 dark:border-zinc-800 bg-gray-50 dark:bg-zinc-800">
-                                    <img src={img} alt={`Job detail ${idx + 1}`} className="object-cover w-full h-full hover:scale-105 transition-transform duration-500" />
+                                <div key={idx} className="relative aspect-[4/3] rounded-[40px] overflow-hidden border-8 border-slate-50 shadow-xl group">
+                                    <img src={img} alt={`Job detail ${idx + 1}`} className="object-cover w-full h-full group-hover:scale-110 transition-transform duration-700" />
                                 </div>
                             ))}
                         </div>
                     )}
 
-                    <div className="flex items-center gap-4 mb-6">
-                        {job.salary_range && (
-                            <div className={`px-4 py-2 rounded-xl border flex items-center gap-2 font-bold ${job.salary_range === 'Gönüllü'
-                                ? 'bg-indigo-50 border-indigo-200 text-indigo-700 dark:bg-indigo-900/30 dark:border-indigo-800 dark:text-indigo-300'
-                                : 'bg-gray-100 border-gray-200 text-gray-700 dark:bg-zinc-800 dark:border-zinc-700 dark:text-zinc-300'
-                                }`}>
-                                <Briefcase className="w-4 h-4" />
-                                {job.salary_range === 'Gönüllü' ? 'Gönüllü / Ücretsiz Proje' : job.salary_range}
-                            </div>
-                        )}
-                        <div className="px-4 py-2 rounded-xl bg-gray-100 border border-gray-200 text-gray-700 dark:bg-zinc-800 dark:border-zinc-700 dark:text-zinc-300 font-bold flex items-center gap-2">
-                            <CheckCircle2 className="w-4 h-4" />
-                            {job.urgency === 'urgent' ? 'Acil Başlangıç' : 'Normal Süreç'}
-                        </div>
+                    <div className="bg-slate-50 p-12 rounded-[48px] mb-16 border border-gray-100">
+                        <p className="text-slate-600 text-xl leading-relaxed font-medium whitespace-pre-wrap">{job.description}</p>
                     </div>
-
-                    <p className="text-gray-600 dark:text-gray-400 mb-8 leading-relaxed text-lg">{job.description}</p>
 
                     <Link
                         href={`/profil/employer/${job.creator_id}`}
-                        className="bg-blue-50 dark:bg-blue-900/10 p-5 rounded-2xl mb-10 flex items-center gap-4 border border-blue-100 dark:border-blue-900/20 hover:bg-blue-100 dark:hover:bg-blue-900/20 transition-all no-underline text-inherit group"
+                        className="bg-white p-8 rounded-[40px] mb-16 flex items-center justify-between border-2 border-slate-50 hover:border-blue-500/20 hover:bg-slate-50 transition-all no-underline text-inherit group shadow-sm"
                     >
-                        <div className="w-12 h-12 bg-blue-100 dark:bg-blue-800 rounded-full flex items-center justify-center text-blue-600 dark:text-blue-200 font-bold text-xl group-hover:scale-110 transition-transform">
-                            {job.profiles?.full_name?.charAt(0).toUpperCase() || "İ"}
+                        <div className="flex items-center gap-6">
+                            <div className="w-16 h-16 bg-blue-600 rounded-[24px] flex items-center justify-center text-white font-black text-2xl group-hover:scale-105 transition-transform uppercase italic">
+                                {job.creator_name?.charAt(0) || "İ"}
+                            </div>
+                            <div>
+                                <p className="text-[10px] font-black text-blue-600 uppercase tracking-widest mb-1">PROJE SAHİBİ</p>
+                                <p className="font-black text-slate-900 text-xl tracking-tighter uppercase italic">{job.creator_name || "GİZLİ KULLANICI"}</p>
+                            </div>
                         </div>
-                        <div>
-                            <p className="text-xs font-bold text-blue-600 dark:text-blue-400 uppercase tracking-wider mb-0.5">İLAN VEREN</p>
-                            <p className="font-bold text-gray-900 dark:text-white text-lg group-hover:text-blue-600 transition-colors">{job.profiles?.full_name || "Gizli Kullanıcı"}</p>
-                        </div>
+                        <ChevronRight className="w-6 h-6 text-slate-300 group-hover:text-blue-600 transition-all group-hover:translate-x-2" />
                     </Link>
                 </div>
 
-                <div className="border-t border-gray-100 dark:border-zinc-800 pt-10">
-
+                <div className="border-t-4 border-dashed border-slate-100 pt-16 relative z-10">
                     {isOwner ? (
-                        <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-2xl p-8 text-center">
-                            <div className="w-16 h-16 bg-blue-100 dark:bg-blue-800 rounded-full flex items-center justify-center mx-auto mb-4 text-blue-600 dark:text-blue-300">
-                                <Briefcase className="w-8 h-8" />
-                            </div>
-                            <h3 className="text-xl font-bold text-blue-900 dark:text-blue-100 mb-2">Bu İlan Size Ait</h3>
-                            <p className="text-blue-700 dark:text-blue-300 mb-6">İlanınıza gelen başvuruları yönetim panelinden takip edebilirsiniz.</p>
+                        <div className="bg-blue-600 p-12 rounded-[56px] text-center shadow-2xl shadow-blue-500/30 text-white">
+                            <h3 className="text-3xl font-black mb-4 uppercase italic tracking-tighter">BU İLAN SİZE AİT</h3>
+                            <p className="text-blue-100 font-bold uppercase tracking-widest text-xs mb-10 opacity-80">Gelen başvuruları yönetim panelinden takip edebilirsiniz.</p>
 
-                            <div className="flex flex-col gap-3">
+                            <div className="flex flex-col sm:flex-row gap-4 justify-center">
                                 <Link
                                     href="/basvurular"
-                                    className="inline-block bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-8 rounded-xl transition-colors shadow-lg shadow-blue-600/20"
+                                    className="bg-white text-blue-600 font-black py-5 px-10 rounded-[28px] text-[10px] uppercase tracking-widest no-underline hover:scale-105 transition-all shadow-xl"
                                 >
-                                    Gelen Başvuruları Gör
+                                    BAŞVURULARI İNCELE
                                 </Link>
 
                                 <button
-                                    onClick={toggleFilledStatus}
+                                    onClick={handleToggleFilled}
                                     disabled={togglingFilled}
-                                    className={`inline-block font-bold py-3 px-8 rounded-xl transition-all ${job.is_filled
-                                        ? 'bg-gray-200 dark:bg-zinc-800 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-zinc-700'
-                                        : 'bg-green-600 hover:bg-green-700 text-white shadow-lg shadow-green-600/20'
-                                        } disabled:opacity-50 disabled:cursor-not-allowed`}
+                                    className={`py-5 px-10 rounded-[28px] font-black text-[10px] uppercase tracking-widest transition-all border-2 ${job.is_filled
+                                        ? 'bg-blue-700 border-blue-800 text-blue-300'
+                                        : 'bg-transparent border-white text-white hover:bg-white/10'
+                                        } disabled:opacity-50`}
                                 >
-                                    {togglingFilled ? 'Güncelleniyor...' : (job.is_filled ? 'İlanı Tekrar Aktifleştir' : 'İş Verildi Olarak İşaretle')}
+                                    {togglingFilled ? 'GÜNCELLENİYOR...' : (job.is_filled ? 'İLANİ AKTİFLEŞTİR' : 'İŞ VERİLDİ YAP')}
                                 </button>
                             </div>
                         </div>
                     ) : (
-                        <>
-                            <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-6">Başvuru Mesajınız</h3>
+                        <div className="max-w-3xl mx-auto">
+                            <h3 className="text-xs font-black text-slate-400 uppercase tracking-[0.3em] mb-10 border-l-4 border-blue-600 pl-6">BAŞVURU FORMU</h3>
 
                             {applied ? (
-                                <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-2xl p-8 text-center animate-in fade-in zoom-in duration-300">
-                                    <div className="w-16 h-16 bg-green-100 dark:bg-green-800 rounded-full flex items-center justify-center mx-auto mb-4 text-green-600 dark:text-green-300">
-                                        <CheckCircle2 className="w-8 h-8" />
+                                <div className="bg-green-50 p-12 rounded-[56px] text-center border-4 border-dashed border-green-200 animate-in zoom-in duration-500">
+                                    <div className="w-20 h-20 bg-green-500 rounded-full flex items-center justify-center mx-auto mb-8 text-white shadow-xl shadow-green-500/20">
+                                        <CheckCircle2 className="w-10 h-10" />
                                     </div>
-                                    <h4 className="font-bold text-green-800 dark:text-green-200 text-xl mb-2">Başvurunuz Alındı</h4>
-                                    <p className="text-green-600 dark:text-green-400">Daha önce bu ilana başvuru yaptınız. İlan sahibi başvurunuzu değerlendiriyor.</p>
-                                    <Link href="/ilanlar" className="mt-6 inline-block text-sm font-bold text-green-700 dark:text-green-300 hover:underline">
-                                        Diğer İlanlara Göz At
+                                    <h4 className="font-black text-green-900 text-3xl mb-4 italic tracking-tighter uppercase">BAŞVURU TAMAM</h4>
+                                    <p className="text-green-600 font-bold text-xs uppercase tracking-widest mb-10">İlan sahibi başvurunuzu değerlendiriyor.</p>
+                                    <Link href="/ilanlar" className="text-[10px] font-black text-green-700 hover:text-green-800 uppercase tracking-widest no-underline group flex items-center justify-center gap-2">
+                                        DİĞER İLANLAR <ChevronRight className="w-4 h-4" />
                                     </Link>
                                 </div>
                             ) : (
-                                <form onSubmit={handleApply} className="bg-gray-50 dark:bg-zinc-950/50 p-1 rounded-2xl border border-gray-200 dark:border-zinc-800">
-                                    <textarea
-                                        className="w-full h-40 p-5 rounded-xl bg-transparent border-none outline-none resize-none text-gray-900 dark:text-white placeholder:text-gray-400 text-lg leading-relaxed"
-                                        placeholder="Merhaba, ben [Adınız]. Bu pozisyonla ilgileniyorum çünkü..."
-                                        value={message}
-                                        onChange={(e) => setMessage(e.target.value)}
-                                        required
-                                    />
-
-                                    <div className="px-4 pb-4">
-                                        <button
-                                            type="submit"
-                                            disabled={applying}
-                                            className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 rounded-xl transition-all shadow-lg shadow-blue-600/20 hover:shadow-blue-600/40 flex items-center justify-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed group"
-                                        >
-                                            {applying ? (
-                                                <span className="flex items-center gap-2">
-                                                    <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></span>
-                                                    Gönderiliyor...
-                                                </span>
-                                            ) : (
-                                                <>
-                                                    Başvuruyu Gönder
-                                                    <Send className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
-                                                </>
-                                            )}
-                                        </button>
-                                        <p className="text-center text-xs text-gray-400 mt-3">
-                                            Küfür veya hakaret içeren mesajlar otomatik olarak engellenir.
-                                        </p>
+                                <form onSubmit={handleApply} className="space-y-6">
+                                    <div className="relative group">
+                                        <textarea
+                                            className="w-full h-56 p-10 rounded-[48px] bg-slate-50 border-2 border-transparent focus:border-blue-600 outline-none resize-none text-slate-800 font-medium text-lg leading-relaxed transition-all"
+                                            placeholder="Bu çalışma için neden en iyi adaysınız? Deneyimlerinizden kısaca bahsedin..."
+                                            value={message}
+                                            onChange={(e) => setMessage(e.target.value)}
+                                            required
+                                        />
+                                        <div className="absolute bottom-10 center-x text-[10px] font-black text-slate-300 uppercase tracking-widest pointer-events-none">
+                                            MESAJINIZI BURAYA YAZIN
+                                        </div>
                                     </div>
+
+                                    <button
+                                        type="submit"
+                                        disabled={applying}
+                                        className="w-full bg-slate-900 hover:bg-black text-white font-black py-6 rounded-[32px] transition-all shadow-2xl hover:scale-[1.02] active:scale-95 flex items-center justify-center gap-4 disabled:opacity-50 text-[10px] uppercase tracking-[0.3em] group"
+                                    >
+                                        {applying ? (
+                                            <span className="flex items-center gap-3">
+                                                <Loader2 className="w-5 h-5 animate-spin" />
+                                                GÖNDERİLİYOR...
+                                            </span>
+                                        ) : (
+                                            <>
+                                                BAŞVURUYU TAMAMLA
+                                                <Send className="w-5 h-5 group-hover:translate-x-2 transition-transform" />
+                                            </>
+                                        )}
+                                    </button>
                                 </form>
                             )}
-                        </>
+                        </div>
                     )}
                 </div>
-
             </div>
+
             {/* Report Modal */}
-            {job && (
-                <ReportModal
-                    isOpen={isReportModalOpen}
-                    onClose={() => setIsReportModalOpen(false)}
-                    targetType="job"
-                    targetId={job.id}
-                    targetTitle={job.title}
-                />
-            )}
+            <ReportModal
+                isOpen={isReportModalOpen}
+                onClose={() => setIsReportModalOpen(false)}
+                targetType="job"
+                targetId={job.id}
+                targetTitle={job.title}
+            />
         </div>
     );
 }

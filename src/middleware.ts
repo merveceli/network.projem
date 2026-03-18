@@ -1,20 +1,27 @@
-import { type NextRequest } from 'next/server'
-import { updateSession } from '@/utils/supabase/middleware'
+import { NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
+import { auth } from '@/auth';
 
 export async function middleware(request: NextRequest) {
-    return await updateSession(request)
+    const session = await auth();
+
+    const currentPath = request.nextUrl.pathname;
+    const protectedRoutes = ['/yeni-ilan', '/basvurular', '/mesajlar', '/bildirimler', '/profil'];
+    const isProtected = protectedRoutes.some(route =>
+        currentPath === route || currentPath.startsWith(`${route}/`)
+    );
+
+    if (isProtected && !session?.user) {
+        const url = request.nextUrl.clone();
+        url.pathname = '/login';
+        return NextResponse.redirect(url);
+    }
+
+    return NextResponse.next();
 }
 
 export const config = {
     matcher: [
-        /*
-         * Match all request paths except for the ones starting with:
-         * - _next/static (static files)
-         * - _next/image (image optimization files)
-         * - favicon.ico (favicon file)
-         * - public static files (svg, png, jpg, etc.)
-         * - internal paths like _vercel, etc.
-         */
-        '/((?!_next/static|_next/image|favicon.ico|_vercel|.*\\.(?:svg|png|jpg|jpeg|gif|webp|css|js|woff|woff2|json|txt|xml|ico)$).*)',
+        '/((?!_next/static|_next/image|favicon.ico|_vercel|api/auth|.*\\.(?:svg|png|jpg|jpeg|gif|webp|css|js|woff|woff2|json|txt|xml|ico)$).*)',
     ],
-}
+};

@@ -1,8 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
-import { supabase } from "@/lib/supabase";
 import Link from "next/link";
-import { User } from "@supabase/supabase-js";
+import { useSession } from "next-auth/react";
 import NotificationBell from "./NotificationBell";
 import { usePathname } from "next/navigation";
 import { Menu, X } from "lucide-react";
@@ -13,22 +12,13 @@ interface NavbarProps {
 }
 
 export default function Navbar({ transparent = false }: NavbarProps) {
-    const [user, setUser] = useState<User | null>(null);
+    const { data: session } = useSession();
+    const user = session?.user;
     const [scrolled, setScrolled] = useState(false);
     const [isMenuOpen, setIsMenuOpen] = useState(false);
     const pathname = usePathname();
 
     useEffect(() => {
-        const init = async () => {
-            const { data: { session } } = await supabase.auth.getSession();
-            setUser(session?.user ?? null);
-        };
-        init();
-
-        const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-            setUser(session?.user ?? null);
-        });
-
         const handleScroll = () => {
             if (transparent) {
                 setScrolled(window.scrollY > 20);
@@ -43,7 +33,6 @@ export default function Navbar({ transparent = false }: NavbarProps) {
 
         return () => {
             window.removeEventListener("scroll", handleScroll);
-            subscription.unsubscribe();
         };
     }, [transparent]);
 

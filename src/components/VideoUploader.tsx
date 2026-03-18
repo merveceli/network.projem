@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useRef } from 'react';
-import { createClient } from '@/utils/supabase/client';
 
 interface VideoUploaderProps {
     userId: string;
@@ -10,7 +9,6 @@ interface VideoUploaderProps {
 }
 
 export default function VideoUploader({ userId, existingVideoUrl, onUploadComplete }: VideoUploaderProps) {
-    const supabase = createClient();
     const [uploading, setUploading] = useState(false);
     const [videoUrl, setVideoUrl] = useState<string | null>(existingVideoUrl || null);
     const fileInputRef = useRef<HTMLInputElement>(null);
@@ -25,11 +23,10 @@ export default function VideoUploader({ userId, existingVideoUrl, onUploadComple
                 return;
             }
 
-            setUploading(true);
             const file = event.target.files?.[0];
             if (!file) return;
 
-            // Dosya boyutu kontrolü (max 50MB)
+            // Dosya boyutu kontrolü (max 100MB for Cloudinary usually, but let's stick to 50MB for performance)
             if (file.size > 50 * 1024 * 1024) {
                 alert('Video boyutu 50MB\'dan küçük olmalıdır!');
                 return;
@@ -41,31 +38,26 @@ export default function VideoUploader({ userId, existingVideoUrl, onUploadComple
                 return;
             }
 
-            const fileExt = file.name.split('.').pop();
-            const fileName = `${userId}/${Math.random()}.${fileExt}`;
-            const filePath = `${fileName}`;
+            setUploading(true);
 
-            // Yükleme işlemi
-            const { error: uploadError } = await supabase.storage
-                .from('videos')
-                .upload(filePath, file, {
-                    cacheControl: '3600',
-                    upsert: false,
-                    contentType: file.type,
-                    // Metadata saklamak istersek buraya ekleyebiliriz
-                });
+            // Cloudinary Upload via API
+            const formData = new FormData();
+            formData.append('file', file);
+            formData.append('folder', 'videos');
 
-            if (uploadError) {
-                throw uploadError;
+            const res = await fetch('/api/upload', {
+                method: 'POST',
+                body: formData
+            });
+
+            const data = await res.json();
+
+            if (!res.ok) {
+                throw new Error(data.error || 'Yükleme başarısız');
             }
 
-            // Public URL al
-            const { data: { publicUrl } } = supabase.storage
-                .from('videos')
-                .getPublicUrl(filePath);
-
-            setVideoUrl(publicUrl);
-            onUploadComplete(publicUrl);
+            setVideoUrl(data.url);
+            onUploadComplete(data.url);
             alert(`Video başarıyla yüklendi! ${aiUsed ? '(Yapay Zeka destekli içerik olarak işaretlendi)' : ''} Onay sürecinden sonra profilinizde yayınlanacak.`);
 
         } catch (error: any) {
@@ -155,7 +147,7 @@ export default function VideoUploader({ userId, existingVideoUrl, onUploadComple
 
                 {uploading && (
                     <div className="mt-4 text-[#3498db] font-bold animate-pulse">
-                        Yükleniyor... %{(Math.random() * 100).toFixed(0)}
+                        Yükleniyor...
                     </div>
                 )}
             </div>

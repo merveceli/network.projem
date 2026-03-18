@@ -1,4 +1,4 @@
-import { supabase } from './supabase';
+import sql from './db';
 
 export interface Conversation {
     id: string;
@@ -37,70 +37,46 @@ export async function getOrCreateConversation(
     userId1: string,
     userId2: string
 ): Promise<Conversation | null> {
-    console.log('--- MESSAGING_LIB_V4_CHECK ---');
-    console.log('IDs:', { userId1, userId2 });
-
-    if (!userId1 || !userId2 || userId1 === userId2) {
-        console.error('BİLGİ: Aynı kullanıcılar arasında konuşma başlatılamaz.', { userId1, userId2 });
-        return null;
-    }
+    if (!userId1 || !userId2 || userId1 === userId2) return null;
 
     // Check if either user has blocked the other
-    const { data: block } = await supabase
-        .from('user_blocks')
-        .select('*')
-        .or(`and(blocker_id.eq.${userId1},blocked_id.eq.${userId2}),and(blocker_id.eq.${userId2},blocked_id.eq.${userId1})`)
-        .maybeSingle();
+    const blocks = await sql`
+        SELECT * FROM user_blocks 
+        WHERE (blocker_id = ${userId1} AND blocked_id = ${userId2})
+           OR (blocker_id = ${userId2} AND blocked_id = ${userId1})
+        LIMIT 1
+    `;
 
-    if (block) {
-        alert('Bu kullanıcı ile iletişim kuramazsınız (Engelleme mevcut).');
-        return null;
+    if (blocks.length > 0) return null;
+
+    // First, try to find existing conversation
+    const existing = await sql`
+        SELECT * FROM conversations 
+        WHERE (participant_1 = ${userId1} AND participant_2 = ${userId2})
+           OR (participant_1 = ${userId2} AND participant_2 = ${userId1})
+        LIMIT 1
+    `;
+
+    if (existing.length > 0) return existing[0] as unknown as Conversation;
+
+    // Create new
+    try {
+        const data = await sql`
+            INSERT INTO conversations (participant_1, participant_2)
+            VALUES (${userId1}, ${userId2})
+            RETURNING *
+        `;
+        return data[0] as unknown as Conversation;
+    } catch (e) {
+        // Handle race condition
+        const retry = await sql`
+            SELECT * FROM conversations 
+            WHERE (participant_1 = ${userId1} AND participant_2 = ${userId2})
+               OR (participant_1 = ${userId2} AND participant_2 = ${userId1})
+            LIMIT 1
+        `;
+        return retry[0] as unknown as Conversation || null;
     }
-
-    // First, try to find existing conversation (check both orders)
-    const { data: existing } = await supabase
-        .from('conversations')
-        .select('*')
-        .or(`and(participant_1.eq.${userId1},participant_2.eq.${userId2}),and(participant_1.eq.${userId2},participant_2.eq.${userId1})`)
-        .maybeSingle();
-
-    if (existing) return existing;
-
-    // If not found, create new conversation
-    const { data, error } = await supabase
-        .from('conversations')
-        .insert({
-            participant_1: userId1,
-            participant_2: userId2,
-        })
-        .select()
-        .single();
-
-    if (error) {
-        console.error('Error creating conversation:', error);
-        console.error('Error details:', JSON.stringify(error, null, 2));
-        console.error('User IDs:', { userId1, userId2 });
-
-        // Check if table doesn't exist
-        if (error.code === '42P01' || error.message?.includes('relation') || error.message?.includes('does not exist')) {
-            alert('⚠️ Mesajlaşma sistemi henüz kurulmamış!\n\nLütfen Supabase Dashboard\'dan migration dosyalarını çalıştırın:\n\n1. 20240113_create_messaging.sql\n2. 20240113_create_notifications.sql\n3. 20240113_create_rate_limits.sql\n4. 20240113_fix_conversation_creation.sql\n\nDetaylar için walkthrough.md dosyasına bakın.');
-        } else if (error.code === '23505') {
-            // Unique constraint violation - conversation exists
-            // Try to fetch it again
-            const { data: retry } = await supabase
-                .from('conversations')
-                .select('*')
-                .or(`and(participant_1.eq.${userId1},participant_2.eq.${userId2}),and(participant_1.eq.${userId2},participant_2.eq.${userId1})`)
-                .maybeSingle();
-            return retry;
-        } else {
-            alert(`Konuşma oluşturulamadı.\n\nHata: ${error.message || 'Bilinmeyen hata'}\n\nLütfen migration dosyalarının çalıştırıldığından emin olun.`);
-        }
-
-        return null;
-    }
-
-    return data;
 }
 
 /**
@@ -109,52 +85,37 @@ export async function getOrCreateConversation(
 export async function getUserConversations(
     userId: string
 ): Promise<ConversationWithProfile[]> {
-    const { data: conversations, error } = await supabase
-        .from('conversations')
-        .select('*')
-        .or(`participant_1.eq.${userId},participant_2.eq.${userId}`)
-        .order('last_message_at', { ascending: false });
+    const conversations = await sql`
+        SELECT * FROM conversations 
+        WHERE participant_1 = ${userId} OR participant_2 = ${userId}
+        ORDER BY last_message_at DESC
+    `;
 
-    if (error || !conversations) {
-        console.error('Error getting conversations:', error);
-        return [];
-    }
-
-    // Enrich with profile data and last message
     const enriched = await Promise.all(
         conversations.map(async (conv) => {
             const otherUserId = conv.participant_1 === userId ? conv.participant_2 : conv.participant_1;
 
-            // Get other user's profile
-            const { data: profile } = await supabase
-                .from('profiles')
-                .select('id, full_name, avatar_url')
-                .eq('id', otherUserId)
-                .single();
+            const profile = await sql`
+                SELECT id, full_name, avatar_url FROM profiles WHERE id = ${otherUserId} LIMIT 1
+            `;
 
-            // Get last message
-            const { data: lastMessage } = await supabase
-                .from('messages')
-                .select('content, sender_id')
-                .eq('conversation_id', conv.id)
-                .order('created_at', { ascending: false })
-                .limit(1)
-                .single();
+            const lastMessage = await sql`
+                SELECT content, sender_id FROM messages 
+                WHERE conversation_id = ${conv.id} 
+                ORDER BY created_at DESC LIMIT 1
+            `;
 
-            // Get unread count
-            const { count: unreadCount } = await supabase
-                .from('messages')
-                .select('*', { count: 'exact', head: true })
-                .eq('conversation_id', conv.id)
-                .eq('read', false)
-                .neq('sender_id', userId);
+            const unreadCount = await sql`
+                SELECT count(*) FROM messages 
+                WHERE conversation_id = ${conv.id} AND read = false AND sender_id != ${userId}
+            `;
 
             return {
                 ...conv,
-                other_user: profile,
-                last_message: lastMessage,
-                unread_count: unreadCount || 0,
-            };
+                other_user: profile[0] || null,
+                last_message: lastMessage[0] || null,
+                unread_count: parseInt(unreadCount[0].count) || 0,
+            } as unknown as ConversationWithProfile;
         })
     );
 
@@ -168,19 +129,13 @@ export async function getMessages(
     conversationId: string,
     limit: number = 50
 ): Promise<Message[]> {
-    const { data, error } = await supabase
-        .from('messages')
-        .select('*')
-        .eq('conversation_id', conversationId)
-        .order('created_at', { ascending: true })
-        .limit(limit);
-
-    if (error) {
-        console.error('Error getting messages:', error);
-        return [];
-    }
-
-    return data || [];
+    const data = await sql`
+        SELECT * FROM messages 
+        WHERE conversation_id = ${conversationId} 
+        ORDER BY created_at ASC 
+        LIMIT ${limit}
+    `;
+    return data as unknown as Message[];
 }
 
 /**
@@ -191,22 +146,12 @@ export async function sendMessage(
     senderId: string,
     content: string
 ): Promise<Message | null> {
-    const { data, error } = await supabase
-        .from('messages')
-        .insert({
-            conversation_id: conversationId,
-            sender_id: senderId,
-            content,
-        })
-        .select()
-        .single();
-
-    if (error) {
-        console.error('Error sending message:', error);
-        return null;
-    }
-
-    return data;
+    const data = await sql`
+        INSERT INTO messages (conversation_id, sender_id, content)
+        VALUES (${conversationId}, ${senderId}, ${content})
+        RETURNING *
+    `;
+    return data[0] as unknown as Message;
 }
 
 /**
@@ -216,18 +161,10 @@ export async function markMessagesAsRead(
     conversationId: string,
     userId: string
 ) {
-    const { error } = await supabase
-        .from('messages')
-        .update({ read: true })
-        .eq('conversation_id', conversationId)
-        .eq('read', false)
-        .neq('sender_id', userId);
-
-    if (error) {
-        console.error('Error marking messages as read:', error);
-        return false;
-    }
-
+    await sql`
+        UPDATE messages SET read = true 
+        WHERE conversation_id = ${conversationId} AND read = false AND sender_id != ${userId}
+    `;
     return true;
 }
 
@@ -235,56 +172,36 @@ export async function markMessagesAsRead(
  * Gets total unread message count for a user
  */
 export async function getTotalUnreadMessages(userId: string): Promise<number> {
-    // Get all user's conversations
-    const { data: conversations } = await supabase
-        .from('conversations')
-        .select('id')
-        .or(`participant_1.eq.${userId},participant_2.eq.${userId}`);
-
-    if (!conversations) return 0;
-
-    const conversationIds = conversations.map(c => c.id);
-
-    // Count unread messages in all conversations
-    const { count } = await supabase
-        .from('messages')
-        .select('*', { count: 'exact', head: true })
-        .in('conversation_id', conversationIds)
-        .eq('read', false)
-        .neq('sender_id', userId);
-
-    return count || 0;
+    const count = await sql`
+        SELECT count(*) FROM messages m
+        JOIN conversations c ON m.conversation_id = c.id
+        WHERE (c.participant_1 = ${userId} OR c.participant_2 = ${userId})
+          AND m.read = false AND m.sender_id != ${userId}
+    `;
+    return parseInt(count[0].count) || 0;
 }
 
 /**
  * Blocks a user
  */
 export async function blockUser(blockerId: string, blockedId: string) {
-    const { error } = await supabase
-        .from('user_blocks')
-        .insert({ blocker_id: blockerId, blocked_id: blockedId });
-
-    if (error) {
-        console.error('Error blocking user:', error);
+    try {
+        await sql`
+            INSERT INTO user_blocks (blocker_id, blocked_id) VALUES (${blockerId}, ${blockedId})
+        `;
+        return true;
+    } catch (e) {
         return false;
     }
-    return true;
 }
 
 /**
  * Unblocks a user
  */
 export async function unblockUser(blockerId: string, blockedId: string) {
-    const { error } = await supabase
-        .from('user_blocks')
-        .delete()
-        .eq('blocker_id', blockerId)
-        .eq('blocked_id', blockedId);
-
-    if (error) {
-        console.error('Error unblocking user:', error);
-        return false;
-    }
+    await sql`
+        DELETE FROM user_blocks WHERE blocker_id = ${blockerId} AND blocked_id = ${blockedId}
+    `;
     return true;
 }
 
@@ -292,11 +209,11 @@ export async function unblockUser(blockerId: string, blockedId: string) {
  * Checks if a user is blocked
  */
 export async function isBlocked(userId1: string, userId2: string): Promise<boolean> {
-    const { data } = await supabase
-        .from('user_blocks')
-        .select('*')
-        .or(`and(blocker_id.eq.${userId1},blocked_id.eq.${userId2}),and(blocker_id.eq.${userId2},blocked_id.eq.${userId1})`)
-        .maybeSingle();
-
-    return !!data;
+    const data = await sql`
+        SELECT id FROM user_blocks 
+        WHERE (blocker_id = ${userId1} AND blocked_id = ${userId2})
+           OR (blocker_id = ${userId2} AND blocked_id = ${userId1})
+        LIMIT 1
+    `;
+    return data.length > 0;
 }

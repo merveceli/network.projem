@@ -2,8 +2,8 @@
 
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { AlertTriangle, X, Info, CheckCircle2, Loader2, Flag } from 'lucide-react';
-import { createClient } from '@/utils/supabase/client';
+import { X, Info, CheckCircle2, Loader2, Flag } from 'lucide-react';
+import { submitReport } from '@/app/actions/report-actions';
 
 interface ReportModalProps {
     isOpen: boolean;
@@ -22,7 +22,6 @@ const REASONS = [
 ];
 
 export default function ReportModal({ isOpen, onClose, targetType, targetId, targetTitle }: ReportModalProps) {
-    const supabase = createClient();
     const [step, setStep] = useState<'selecting' | 'details' | 'success'>('selecting');
     const [reason, setReason] = useState('');
     const [details, setDetails] = useState('');
@@ -30,25 +29,19 @@ export default function ReportModal({ isOpen, onClose, targetType, targetId, tar
 
     const handleSubmit = async () => {
         setLoading(true);
-        try {
-            const { data: { user } } = await supabase.auth.getUser();
-            if (!user) throw new Error('Oturum açmanız gerekiyor.');
+        const { success, error } = await submitReport({
+            targetType,
+            targetId,
+            reason,
+            details
+        });
 
-            const { error } = await supabase.from('reports').insert({
-                reporter_id: user.id,
-                target_type: targetType,
-                target_id: targetId,
-                reason: reason,
-                details: details,
-            });
-
-            if (error) throw error;
+        if (success) {
             setStep('success');
-        } catch (error: any) {
-            alert(error.message || 'Bir hata oluştu.');
-        } finally {
-            setLoading(false);
+        } else {
+            alert(error || 'Bir hata oluştu.');
         }
+        setLoading(false);
     };
 
     if (!isOpen) return null;

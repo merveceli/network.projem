@@ -1,90 +1,43 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { createClient } from '@/utils/supabase/client';
+import { useSession } from "next-auth/react";
 import Link from 'next/link';
 import { Sparkles, ArrowRight, Briefcase } from 'lucide-react';
+import { getSmartJobMatches } from '@/app/ilanlar/match-actions';
 
 interface Job {
     id: string;
     title: string;
     category: string;
     created_at: string;
-    profiles: { full_name: string | null } | null;
+    employer_name: string | null;
 }
 
 export default function SmartJobMatcher() {
-    const supabase = createClient();
+    const { data: session, status } = useSession();
     const [recommendedJobs, setRecommendedJobs] = useState<Job[]>([]);
     const [loading, setLoading] = useState(true);
-    const [userSkills, setUserSkills] = useState<string[]>([]);
     const [userName, setUserName] = useState('');
 
     useEffect(() => {
+        if (status === 'loading') return;
+        if (status === 'unauthenticated' || !session?.user) {
+            setLoading(false);
+            return;
+        }
+
         const fetchRecommendations = async () => {
-            const { data: { user } } = await supabase.auth.getUser();
-            if (!user) {
-                setLoading(false);
-                return;
-            }
-
-            // 1. Get User Profile for Skills & Title
-            const { data: profile } = await supabase
-                .from('profiles')
-                .select('skills, title, full_name')
-                .eq('id', user.id)
-                .single();
-
-            if (profile) {
-                setUserName(profile.full_name || 'Kullanıcı');
-
-                // Parse Skills (assuming they are stored as JSON array or text array)
-                let skills: string[] = [];
-                if (Array.isArray(profile.skills)) {
-                    skills = profile.skills.map((s: any) => typeof s === 'string' ? s : s.name);
-                }
-                setUserSkills(skills);
-
-                // 2. Simple Matching Algorithm
-                // Match jobs where category matches user title OR title contains user skills
-                let query = supabase
-                    .from('jobs')
-                    .select('id, title, category, created_at, profiles(full_name)')
-                    .eq('status', 'approved')
-                    .limit(4);
-
-                // Prepare search terms from title and skills
-                const searchTerms = [profile.title, ...skills].filter(Boolean);
-
-                if (searchTerms.length > 0) {
-                    // OR logic for title matching one of the skills/title
-                    // Note: Supabase 'or' syntax for ilike is tricky with arrays, using a simpler category match for now + text search if possible
-                    // A simple reliable matcher: match Category OR Title allows partial match
-
-                    // Helper: match jobs with same category as Title (fuzzy) or just generic "Software" if tech
-                    const orConditions = searchTerms.map(term => `title.ilike.%${term}%,category.ilike.%${term}%`).join(',');
-                    query = query.or(orConditions);
-                }
-
-                const { data: jobs } = await query;
-                if (jobs && jobs.length > 0) {
-                    setRecommendedJobs(jobs as any);
-                } else {
-                    // Fallback: If no match, show latest jobs
-                    const { data: latest } = await supabase
-                        .from('jobs')
-                        .select('id, title, category, created_at, profiles(full_name)')
-                        .eq('status', 'approved')
-                        .order('created_at', { ascending: false })
-                        .limit(4);
-                    if (latest) setRecommendedJobs(latest as any);
-                }
+            const { data, fullName, error } = await getSmartJobMatches();
+            if (!error && data) {
+                setRecommendedJobs(data as unknown as Job[]);
+                setUserName(fullName || 'Kullanıcı');
             }
             setLoading(false);
         };
 
         fetchRecommendations();
-    }, []);
+    }, [status, session]);
 
     if (loading || recommendedJobs.length === 0) return null;
 
@@ -106,17 +59,17 @@ export default function SmartJobMatcher() {
 
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                     {recommendedJobs.map(job => (
-                        <Link href={`/ilan/${job.id}`} key={job.id} className="group bg-white/10 backdrop-blur-md hover:bg-white/20 border border-white/10 p-4 rounded-2xl transition-all hover:-translate-y-1">
+                        <Link href={`/ilan/${job.id}`} key={job.id} className="group bg-white/10 backdrop-blur-md hover:bg-white/20 border border-white/10 p-4 rounded-2xl transition-all hover:-translate-y-1 no-underline">
                             <div className="flex justify-between items-start mb-3">
                                 <span className="bg-white/20 text-white text-[10px] font-bold px-2 py-1 rounded-lg uppercase tracking-wider">
                                     {job.category}
                                 </span>
                                 <ArrowRight className="w-4 h-4 text-white/50 group-hover:text-white transition-colors" />
                             </div>
-                            <h3 className="font-bold text-lg leading-tight mb-2 line-clamp-2">{job.title}</h3>
+                            <h3 className="font-bold text-lg leading-tight mb-2 line-clamp-2 text-white">{job.title}</h3>
                             <div className="flex items-center gap-2 text-xs text-blue-100 font-medium opacity-80">
                                 <Briefcase className="w-3 h-3" />
-                                <span className="truncate">{job.profiles?.full_name || 'İşveren'}</span>
+                                <span className="truncate">{job.employer_name || 'İşveren'}</span>
                             </div>
                         </Link>
                     ))}

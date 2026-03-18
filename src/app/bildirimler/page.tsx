@@ -1,68 +1,85 @@
 "use client";
 import { useEffect, useState } from 'react';
-import { supabase } from '@/lib/supabase';
 import Link from 'next/link';
-import { ArrowLeft, Bell, Check, CheckCheck, Trash2, Filter } from 'lucide-react';
-import { Notification, markNotificationAsRead, markAllNotificationsAsRead, deleteNotification } from '@/lib/notifications';
+import { useSession } from "next-auth/react";
+import { ArrowLeft, Bell, Check, CheckCheck, Trash2 } from 'lucide-react';
+import { 
+    fetchNotifications, 
+    markAsReadAction, 
+    markAllAsReadAction, 
+    deleteNotificationAction 
+} from './actions';
+
+interface Notification {
+    id: string;
+    user_id: string;
+    type: string;
+    title: string;
+    message: string;
+    link?: string;
+    read: boolean;
+    created_at: string;
+}
 
 export default function NotificationsPage() {
+    const { data: session, status } = useSession();
     const [notifications, setNotifications] = useState<Notification[]>([]);
     const [loading, setLoading] = useState(true);
     const [filter, setFilter] = useState<'all' | 'unread'>('all');
-    const [userId, setUserId] = useState<string | null>(null);
+    const userId = session?.user?.id || null;
 
     useEffect(() => {
         async function loadData() {
-            const { data: { user } } = await supabase.auth.getUser();
-            if (!user) return;
-
-            setUserId(user.id);
-
-            let query = supabase
-                .from('notifications')
-                .select('*')
-                .eq('user_id', user.id)
-                .order('created_at', { ascending: false });
-
-            if (filter === 'unread') {
-                query = query.eq('read', false);
+            if (status === 'loading') return;
+            if (status === 'unauthenticated' || !userId) {
+                setLoading(false);
+                return;
             }
 
-            const { data, error } = await query;
+            const { data, error } = await fetchNotifications(filter);
 
             if (!error && data) {
-                setNotifications(data);
+                setNotifications(data as unknown as Notification[]);
             }
             setLoading(false);
         }
 
         loadData();
-    }, [filter]);
+    }, [filter, status, userId]);
 
     const handleMarkAsRead = async (id: string) => {
-        await markNotificationAsRead(id);
-        setNotifications(prev => prev.map(n => n.id === id ? { ...n, read: true } : n));
+        const { success } = await markAsReadAction(id);
+        if (success) {
+            setNotifications(prev => prev.map(n => n.id === id ? { ...n, read: true } : n));
+        }
     };
 
     const handleMarkAllAsRead = async () => {
-        if (!userId) return;
-        await markAllNotificationsAsRead(userId);
-        setNotifications(prev => prev.map(n => ({ ...n, read: true })));
+        const { success } = await markAllAsReadAction();
+        if (success) {
+            setNotifications(prev => prev.map(n => ({ ...n, read: true })));
+        }
     };
 
     const handleDelete = async (id: string) => {
-        await deleteNotification(id);
-        setNotifications(prev => prev.filter(n => n.id !== id));
+        const { success } = await deleteNotificationAction(id);
+        if (success) {
+            setNotifications(prev => prev.filter(n => n.id !== id));
+        }
     };
 
     const unreadCount = notifications.filter(n => !n.read).length;
 
-    if (loading) {
+    if (loading || status === 'loading') {
         return (
             <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-zinc-950">
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
             </div>
         );
+    }
+
+    if (status === 'unauthenticated') {
+        return <div className="h-screen flex items-center justify-center">Oturum açmanız gerekiyor.</div>;
     }
 
     return (
