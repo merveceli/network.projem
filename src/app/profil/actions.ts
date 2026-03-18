@@ -18,6 +18,18 @@ export async function getProfile() {
     }
 }
 
+export async function getProfileById(id: string) {
+    try {
+        const profile = await sql`
+            SELECT * FROM profiles WHERE id = ${id}
+        `;
+        return profile[0] || null;
+    } catch (e) {
+        console.error("getProfileById error:", e);
+        return null;
+    }
+}
+
 export async function updateProfileSetup(data: any) {
     const session = await auth();
     if (!session?.user?.id) throw new Error("Unauthorized");

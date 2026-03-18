@@ -38,7 +38,8 @@ export default function EmailVerificationBanner() {
 
     // Don't show if user is verified, not logged in (still loading), or dismissed
     // In Auth.js session, emailVerified might be null or a date
-    if (status !== 'authenticated' || !session?.user || session.user.emailVerified || dismissed) {
+    const user = session?.user as any;
+    if (status !== 'authenticated' || !user || user.emailVerified || dismissed) {
         return null;
     }
 
