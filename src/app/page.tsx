@@ -37,20 +37,21 @@ export default function HomePage() {
   };
 
   useEffect(() => {
-    const init = async () => {
+    const fetchJobs = async () => {
       try {
-        const { data: { session } } = await supabase.auth.getSession();
-        setUser(session?.user ?? null);
-        const { data } = await supabase.from("jobs").select(`id, title, description, category, creator_id, is_filled, urgency, images, profiles:creator_id(full_name, role)`).eq('status', 'approved').order("created_at", { ascending: false }).limit(6);
+        const { data } = await supabase
+          .from("jobs")
+          .select(`id, title, description, category, creator_id, is_filled, urgency, images, profiles:creator_id(full_name, role)`)
+          .eq('status', 'approved')
+          .order("created_at", { ascending: false })
+          .limit(6);
         if (data) setJobs(data as unknown as Job[]);
       } finally {
         setLoading(false);
       }
     };
-    init();
+    fetchJobs();
   }, []);
-
-  if (loading) return null;
 
   return (
     <div className="min-h-screen bg-white text-[#334155] font-sans selection:bg-[#89A8B2] selection:text-white">
@@ -166,7 +167,19 @@ export default function HomePage() {
           </div>
 
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {jobs.length > 0 ? (
+            {loading ? (
+              [1, 2, 3].map((n) => (
+                <div key={n} className="bg-white p-8 rounded-xl border border-slate-100 animate-pulse h-[300px]">
+                  <div className="w-20 h-6 bg-slate-100 rounded mb-6"></div>
+                  <div className="w-full h-8 bg-slate-100 rounded mb-4"></div>
+                  <div className="w-2/3 h-4 bg-slate-100 rounded mb-6"></div>
+                  <div className="pt-6 border-t border-slate-50 flex justify-between items-center">
+                    <div className="w-24 h-4 bg-slate-100 rounded"></div>
+                    <div className="w-6 h-6 bg-slate-100 rounded-full"></div>
+                  </div>
+                </div>
+              ))
+            ) : jobs.length > 0 ? (
               jobs.map((job) => (
                 <div key={job.id} className="bg-white p-8 rounded-xl border border-slate-100 hover:shadow-2xl hover:-translate-y-2 transition-all duration-500 group relative">
                   <div className="flex justify-between items-start mb-6">
